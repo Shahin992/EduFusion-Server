@@ -3,7 +3,6 @@ import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { PDFParse } from 'pdf-parse';
 import { AIQuestion } from '../../schemas/ai-question.schema';
 import { AIQuestionSet } from '../../schemas/ai-question-set.schema';
 
@@ -28,9 +27,7 @@ export class AiLabService {
     let textContent = '';
     try {
       if (fileBuffer && fileBuffer.length > 0) {
-        const parser = new PDFParse({ data: fileBuffer });
-        const result = await parser.getText();
-        textContent = result.text;
+        textContent = await this.extractPdfText(fileBuffer);
       } else {
         textContent = 'Default academic content for ' + subject;
       }
@@ -288,6 +285,14 @@ export class AiLabService {
     }).save();
 
     return questionSet;
+  }
+
+  private async extractPdfText(fileBuffer: Buffer) {
+    const pdfParseModule = await import('pdf-parse');
+    const PDFParse = pdfParseModule.PDFParse;
+    const parser = new PDFParse({ data: fileBuffer });
+    const result = await parser.getText();
+    return result.text;
   }
 
 }
