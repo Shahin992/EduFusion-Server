@@ -19,6 +19,17 @@ async function getHandler() {
 }
 
 export default async function handler(req: any, res: any) {
-  const serverlessHandler = await getHandler();
-  return serverlessHandler(req, res);
+  try {
+    const serverlessHandler = await getHandler();
+    return serverlessHandler(req, res);
+  } catch (error) {
+    console.error('Vercel bootstrap failed:', error);
+    res.status(500).json({
+      message: 'Server startup failed',
+      error:
+        error instanceof Error
+          ? error.message
+          : 'Unknown startup error',
+    });
+  }
 }
