@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, ConflictException, InternalServerErrorException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -17,7 +17,13 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.userModel.findOne({ email });
+    let user;
+    try {
+      user = await this.userModel.findOne({ email });
+    } catch (dbError) {
+      console.error('Database Query Error:', dbError);
+      throw new InternalServerErrorException('Database connection failed during login lookup');
+    }
     
     if (!user) {
       throw new NotFoundException('User with this email not found');
