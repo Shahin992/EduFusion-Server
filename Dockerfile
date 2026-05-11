@@ -3,23 +3,23 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++
+
 # Copy package files
 COPY package*.json ./
 
-# Install build dependencies for native modules (like bcrypt)
-RUN apk add --no-cache python3 make g++
-
-# Use npm ci for faster, more reliable builds
+# Install ALL dependencies
 RUN npm ci
 
-# Set memory limit for build process
-ENV NODE_OPTIONS="--max-old-space-size=2048"
-
-# Copy source code and config
+# Copy source code
 COPY . .
 
 # Generate build
 RUN npm run build
+
+# Prune dev dependencies to keep node_modules lean for production
+RUN npm prune --production
 
 # Production Stage
 FROM node:20-alpine AS runner
@@ -29,20 +29,15 @@ WORKDIR /app
 # Set environment to production
 ENV NODE_ENV=production
 
-# Create a non-root user and group
+# Create a non-root user
 RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
 
-# Copy package files
+# Copy pruned node_modules from builder
+COPY --from=builder /app/node_modules ./node_modules
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
+# Copy package.json for the start script
 COPY package*.json ./
-
-# Install build dependencies for native modules in production
-RUN apk add --no-cache python3 make g++
-
-# Install only production dependencies
-RUN npm ci --omit=dev
-
-# Copy built files from builder stage
-COPY --from=builder --chown=nestjs:nodejs /app/dist ./dist
 
 # Switch to non-root user
 USER nestjs
