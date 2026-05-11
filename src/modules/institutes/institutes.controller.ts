@@ -19,8 +19,12 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { SetMetadata } from '@nestjs/common';
 
+import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+
 const Roles = (...roles: string[]) => SetMetadata('roles', roles);
 
+@ApiTags('institutes')
+@ApiBearerAuth()
 @Controller('institutes')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class InstitutesController {
