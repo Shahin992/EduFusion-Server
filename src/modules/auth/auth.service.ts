@@ -19,53 +19,75 @@ export class AuthService {
   async validateUser(email: string, pass: string): Promise<any> {
     let user;
     try {
+      console.log(`[AuthService] Validating user: ${email}`);
       user = await this.userModel.findOne({ email });
     } catch (dbError) {
-      console.error('Database Query Error:', dbError);
+      console.error('[AuthService] DB lookup error:', dbError);
       throw new InternalServerErrorException('Database connection failed during login lookup');
     }
     
     if (!user) {
+      console.warn(`[AuthService] User not found: ${email}`);
       throw new NotFoundException('User with this email not found');
     }
 
+    console.log(`[AuthService] User found, comparing passwords...`);
     const isPasswordMatching = await bcrypt.compare(pass, user.passwordHash);
+    
     if (!isPasswordMatching) {
+      console.warn(`[AuthService] Password mismatch for: ${email}`);
       throw new UnauthorizedException('Wrong password');
     }
 
-    const { passwordHash, ...result } = user.toObject();
+    console.log(`[AuthService] Password verified for: ${email}`);
+    const userObj = user.toObject();
+    const { passwordHash, ...result } = userObj;
     return result;
   }
 
   async login(user: any) {
-    const institute = await this.instituteModel.findById(user.instituteId);
-    
-    const payload = { 
-      email: user.email, 
-      sub: user._id, 
-      name: user.name,
-      role: user.role, 
-      instituteId: user.instituteId 
-    };
-    return {
-      access_token: this.jwtService.sign(payload),
-      user: {
-        id: user._id,
-        email: user.email,
+    try {
+      console.log(`[AuthService] Starting login for user: ${user.email}`);
+      
+      const institute = user.instituteId 
+        ? await this.instituteModel.findById(user.instituteId)
+        : null;
+      
+      console.log(`[AuthService] Institute lookup complete: ${institute ? institute.name : 'None'}`);
+
+      const payload = { 
+        email: user.email, 
+        sub: user._id || user.id, 
         name: user.name,
-        phone: user.phone,
-        photoUrl: user.photoUrl,
-        role: user.role,
-        instituteId: user.instituteId,
-        institute: institute ? {
-          name: institute.name,
-          logoUrl: institute.logoUrl,
-          branding: institute.branding,
-          isOnboarded: institute.isOnboarded
-        } : null
-      }
-    };
+        role: user.role, 
+        instituteId: user.instituteId 
+      };
+
+      const token = this.jwtService.sign(payload);
+      console.log(`[AuthService] JWT signed successfully`);
+
+      return {
+        access_token: token,
+        user: {
+          id: user._id || user.id,
+          email: user.email,
+          name: user.name,
+          phone: user.phone,
+          photoUrl: user.photoUrl,
+          role: user.role,
+          instituteId: user.instituteId,
+          institute: institute ? {
+            name: institute.name,
+            logoUrl: institute.logoUrl,
+            branding: institute.branding,
+            isOnboarded: institute.isOnboarded
+          } : null
+        }
+      };
+    } catch (error) {
+      console.error('[AuthService] Login failed at JWT/Object stage:', error);
+      throw new InternalServerErrorException('Login processing failed: ' + (error instanceof Error ? error.message : 'Unknown error'));
+    }
   }
 
   async register(userData: any) {
