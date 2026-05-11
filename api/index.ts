@@ -1,39 +1,42 @@
 import express from 'express';
-import serverless from 'serverless-http';
 import { ExpressAdapter } from '@nestjs/platform-express';
 import { createApp } from '../src/app.factory';
 
-let cachedHandler: ReturnType<typeof serverless> | null = null;
+let cachedApp: any = null;
 
-async function getHandler() {
-  if (cachedHandler) {
-    return cachedHandler;
+async function getApp() {
+  if (cachedApp) {
+    return cachedApp;
   }
 
   const expressApp = express();
   const adapter = new ExpressAdapter(expressApp);
   await createApp(adapter);
-
-  cachedHandler = serverless(expressApp);
-  return cachedHandler;
+  
+  cachedApp = expressApp;
+  return cachedApp;
 }
 
 export default async function handler(req: any, res: any) {
-  const start = Date.now();
-  console.log(`[Handler] Received request: ${req.method} ${req.url}`);
   try {
-    const serverlessHandler = await getHandler();
-    const result = await serverlessHandler(req, res);
-    console.log(`[Handler] Request processed in ${Date.now() - start}ms`);
-    return result;
+    const app = await getApp();
+    
+    // Handle root / by showing a simple health status since global prefix is /api
+    if (req.url === '/' || req.url === '/api') {
+      return res.status(200).json({
+        status: 'EduFusion API is running',
+        docs: '/api/docs',
+        health: '/api/health'
+      });
+    }
+
+    // Direct Express handling
+    return app(req, res);
   } catch (error) {
-    console.error(`[Handler] Vercel bootstrap failed after ${Date.now() - start}ms:`, error);
+    console.error('Vercel handler failed:', error);
     res.status(500).json({
-      message: 'Server startup failed',
-      error:
-        error instanceof Error
-          ? error.message
-          : 'Unknown startup error',
+      message: 'Server internal error',
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
