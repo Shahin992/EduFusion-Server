@@ -21,6 +21,8 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { BullModule } from '@nestjs/bullmq';
+import { ImportModule } from './modules/import/import.module';
 
 @Module({
   imports: [
@@ -64,6 +66,19 @@ import { APP_GUARD } from '@nestjs/core';
       ttl: 60000,
       limit: 60,
     }]),
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('redis.host'),
+          port: configService.get('redis.port'),
+          password: configService.get('redis.password'),
+          tls: configService.get('redis.tls') ? {} : undefined,
+        },
+      }),
+      inject: [ConfigService],
+    }),
+    ImportModule,
   ],
   controllers: [AppController],
   providers: [
