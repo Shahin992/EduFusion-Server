@@ -34,7 +34,7 @@ export async function createApp(adapter?: ExpressAdapter) {
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Enable Swagger (even on Vercel, now that the main timeout is fixed)
+  // Enable Swagger with CDN assets to fix 404s on Vercel
   const config = new DocumentBuilder()
     .setTitle('EduFusion API')
     .setDescription('The EduFusion Management System API description')
@@ -42,7 +42,13 @@ export async function createApp(adapter?: ExpressAdapter) {
     .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup('api/docs', app, document, {
+    customCssUrl: 'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
+    customJs: [
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.js',
+      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.js',
+    ],
+  });
 
   await app.init();
   console.log(`[Bootstrap] NestJS app initialized in ${Date.now() - start}ms`);
