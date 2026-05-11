@@ -49,9 +49,15 @@ export class AuthService {
     try {
       console.log(`[AuthService] Starting login for user: ${user.email}`);
       
-      const institute = user.instituteId 
+      const isValidObjectId = Types.ObjectId.isValid(user.instituteId);
+      
+      const institute = (user.instituteId && isValidObjectId)
         ? await this.instituteModel.findById(user.instituteId)
         : null;
+      
+      if (user.instituteId && !isValidObjectId) {
+        console.warn(`[AuthService] user.instituteId "${user.instituteId}" is not a valid ObjectId. Skipping institute lookup.`);
+      }
       
       console.log(`[AuthService] Institute lookup complete: ${institute ? institute.name : 'None'}`);
 
