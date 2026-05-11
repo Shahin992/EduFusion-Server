@@ -16,6 +16,12 @@ export async function createApp(adapter?: ExpressAdapter) {
     ? await NestFactory.create(AppModule, adapter)
     : await NestFactory.create(AppModule);
 
+  // TRUST PROXY: Essential for Railway's load balancer to work correctly with NestJS/Express
+  const instance = app.getHttpAdapter().getInstance();
+  if (typeof instance.set === 'function') {
+    instance.set('trust proxy', 1);
+  }
+
   app.setGlobalPrefix('api');
 
   app.use((req, res, next) => {

@@ -18,7 +18,7 @@ COPY . .
 # Generate build
 RUN npm run build
 
-# Prune dev dependencies to keep node_modules lean for production
+# Prune dev dependencies
 RUN npm prune --production
 
 # Production Stage
@@ -32,18 +32,16 @@ ENV NODE_ENV=production
 # Create a non-root user
 RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
 
-# Copy pruned node_modules from builder
+# Copy pruned node_modules and built files
 COPY --from=builder /app/node_modules ./node_modules
-# Copy built files from builder
 COPY --from=builder /app/dist ./dist
-# Copy package.json for the start script
-COPY package*.json ./
+COPY --from=builder /app/package.json ./package.json
 
 # Switch to non-root user
 USER nestjs
 
-# Expose port
-EXPOSE 3005
+# Railway provides PORT, but EXPOSE 8080 helps with auto-detection
+EXPOSE 8080
 
 # Start the application
 CMD ["npm", "run", "start:prod"]
