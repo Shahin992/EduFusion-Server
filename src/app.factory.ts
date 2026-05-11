@@ -34,17 +34,15 @@ export async function createApp(adapter?: ExpressAdapter) {
   app.useGlobalInterceptors(new TransformInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  // Skip Swagger on Vercel to save bootstrap time
-  if (!isVercel) {
-    const config = new DocumentBuilder()
-      .setTitle('EduFusion API')
-      .setDescription('The EduFusion Management System API description')
-      .setVersion('1.0')
-      .addBearerAuth()
-      .build();
-    const document = SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('api/docs', app, document);
-  }
+  // Enable Swagger (even on Vercel, now that the main timeout is fixed)
+  const config = new DocumentBuilder()
+    .setTitle('EduFusion API')
+    .setDescription('The EduFusion Management System API description')
+    .setVersion('1.0')
+    .addBearerAuth()
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api/docs', app, document);
 
   await app.init();
   console.log(`[Bootstrap] NestJS app initialized in ${Date.now() - start}ms`);
