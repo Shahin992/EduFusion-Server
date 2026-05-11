@@ -23,12 +23,20 @@ export class RegisterDto {
   @IsEnum(['admin', 'teacher', 'student'])
   role: string;
 
-  @ApiProperty({ required: false, example: 'Greenwood High' })
+  @ApiProperty({ 
+    required: false, 
+    example: 'Greenwood High', 
+    description: 'Name of the new institute to create (Required for Admins)' 
+  })
   @IsOptional()
   @IsString()
   instituteName?: string;
 
-  @ApiProperty({ required: false, example: '65e6f8901234567890abcdef', description: 'Mongoose ObjectId of the institute' })
+  @ApiProperty({ 
+    required: false, 
+    example: '65e6f8901234567890abcdef', 
+    description: 'ID of an existing institute to join (Required for Teachers/Students)' 
+  })
   @IsOptional()
   @IsString()
   instituteId?: string;
