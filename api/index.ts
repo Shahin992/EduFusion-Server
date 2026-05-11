@@ -19,11 +19,15 @@ async function getHandler() {
 }
 
 export default async function handler(req: any, res: any) {
+  const start = Date.now();
+  console.log(`[Handler] Received request: ${req.method} ${req.url}`);
   try {
     const serverlessHandler = await getHandler();
-    return serverlessHandler(req, res);
+    const result = await serverlessHandler(req, res);
+    console.log(`[Handler] Request processed in ${Date.now() - start}ms`);
+    return result;
   } catch (error) {
-    console.error('Vercel bootstrap failed:', error);
+    console.error(`[Handler] Vercel bootstrap failed after ${Date.now() - start}ms:`, error);
     res.status(500).json({
       message: 'Server startup failed',
       error:
