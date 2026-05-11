@@ -28,7 +28,7 @@ export class RegisterDto {
   @IsString()
   instituteName?: string;
 
-  @ApiProperty({ required: false, example: 'INST123' })
+  @ApiProperty({ required: false, example: '65e6f8901234567890abcdef', description: 'Mongoose ObjectId of the institute' })
   @IsOptional()
   @IsString()
   instituteId?: string;
