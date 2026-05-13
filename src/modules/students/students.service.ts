@@ -8,7 +8,7 @@ import { AcademicSession } from '../../schemas/academic-session.schema';
 import { Institute } from '../../schemas/institute.schema';
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 @Injectable()
 export class StudentsService {
