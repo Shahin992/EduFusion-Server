@@ -5,7 +5,7 @@ WORKDIR /app
 # No longer need python/make/g++ because we switched to bcryptjs
 COPY package*.json ./
 # Cache npm dependencies for faster builds
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,id=npm,target=/root/.npm \
     npm ci
 
 COPY . .
