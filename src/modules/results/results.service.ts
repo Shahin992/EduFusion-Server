@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Mark } from '../../schemas/mark.schema';
 import { Institute } from '../../schemas/institute.schema';
 import { Exam } from '../../schemas/exam.schema';
@@ -16,23 +16,27 @@ export class ResultsService {
   ) {}
 
   async getClassResults(examId: string, classId: string, instituteId: string) {
-    const institute = await this.instituteModel.findById(instituteId);
+    const instId = new Types.ObjectId(instituteId);
+    const exId = new Types.ObjectId(examId);
+    const clId = new Types.ObjectId(classId);
+
+    const institute = await this.instituteModel.findById(instId);
     if (!institute) throw new NotFoundException('Institute not found');
 
-    const exam = await this.examModel.findOne({ _id: examId, instituteId });
+    const exam = await this.examModel.findOne({ _id: exId, instituteId: instId });
     if (!exam) throw new NotFoundException('Exam not found');
 
     // Fetch all marks for this exam and class
     const marks = await this.markModel.find({
-      examId,
-      classId,
-      instituteId,
+      examId: exId,
+      classId: clId,
+      instituteId: instId,
     }).populate('studentId subjectId');
 
     // Fetch all students in this class to ensure we include those without marks
     const students = await this.studentModel.find({
-      classId,
-      instituteId,
+      classId: clId,
+      instituteId: instId,
       isActive: true,
     }).sort({ rollNumber: 1 });
 
@@ -53,17 +57,28 @@ export class ResultsService {
     });
   }
 
-  async getStudentResult(studentId: string, examId: string, instituteId: string) {
-    const institute = await this.instituteModel.findById(instituteId);
-    const exam = await this.examModel.findOne({ _id: examId, instituteId });
-    const student = await this.studentModel.findOne({ _id: studentId, instituteId });
+  async getStudentResult(studentId: string, examId: string, instituteId: string, isStaff: boolean = false) {
+    const instId = new Types.ObjectId(instituteId);
+    const exId = new Types.ObjectId(examId);
+    const stId = new Types.ObjectId(studentId);
+
+    const institute = await this.instituteModel.findById(instId);
+    if (!institute) throw new NotFoundException('Institute not found');
+
+    const exam = await this.examModel.findOne({ _id: exId, instituteId: instId });
+    const student = await this.studentModel.findOne({ _id: stId, instituteId: instId });
 
     if (!student || !exam) throw new NotFoundException('Student or Exam not found');
 
+    // If not staff, check if results are published
+    if (!isStaff && !exam.resultPublished) {
+      throw new NotFoundException('Results for this exam have not been published yet');
+    }
+
     const studentMarks = await this.markModel.find({
-      studentId,
-      examId,
-      instituteId,
+      studentId: stId,
+      examId: exId,
+      instituteId: instId,
     }).populate('subjectId');
 
     return this.calculateStudentResult(student, studentMarks, institute.gradingRules || [], exam);

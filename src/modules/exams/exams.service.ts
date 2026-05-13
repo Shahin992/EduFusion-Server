@@ -23,6 +23,22 @@ export class ExamsService {
   async create(createExamDto: CreateExamDto, instituteId: string): Promise<Exam> {
     const instId = new Types.ObjectId(instituteId);
     
+    // 1. Date Validation
+    const start = new Date(createExamDto.startDate);
+    const end = new Date(createExamDto.endDate);
+    if (start > end) {
+      throw new BadRequestException('Start date cannot be after end date');
+    }
+
+    // 2. Class Validation
+    const targetClass = await this.classModel.findOne({ 
+      _id: new Types.ObjectId(createExamDto.classId), 
+      instituteId: instId 
+    });
+    if (!targetClass) {
+      throw new BadRequestException('Selected class not found or unauthorized');
+    }
+
     const createdExam = new this.examModel({
       ...createExamDto,
       instituteId: instId,
@@ -49,9 +65,14 @@ export class ExamsService {
     return savedExam;
   }
 
-  async findAll(instituteId: string) {
+  async findAll(instituteId: string, classId?: string) {
+    const query: any = { instituteId: new Types.ObjectId(instituteId) };
+    if (classId) {
+      query.classId = new Types.ObjectId(classId);
+    }
+
     return this.examModel
-      .find({ instituteId: new Types.ObjectId(instituteId) })
+      .find(query)
       .populate('classId', 'name')
       .populate('subjects.subjectId', 'name')
       .sort({ createdAt: -1 })
@@ -90,6 +111,14 @@ export class ExamsService {
     // Verify exam exists and belongs to institute
     const existingExam = await this.examModel.findOne({ _id: examId, instituteId: instId });
     if (!existingExam) throw new NotFoundException('Exam not found');
+
+    // 1. Date Validation (if dates are being updated)
+    const startDate = updateExamDto.startDate || existingExam.startDate;
+    const endDate = updateExamDto.endDate || existingExam.endDate;
+    
+    if (new Date(startDate) > new Date(endDate)) {
+      throw new BadRequestException('Start date cannot be after end date');
+    }
 
     // Update Exam document
     const updatedExam = await this.examModel.findByIdAndUpdate(

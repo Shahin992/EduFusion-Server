@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true, versionKey: false })
+@Schema({ timestamps: true, versionKey: false, collection: 'AI_QUESTION_SETS' })
 export class AIQuestionSet extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Institute', required: true })
   instituteId: Types.ObjectId;

@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true, versionKey: false })
+@Schema({ timestamps: true, versionKey: false, collection: 'EXAM_SCHEDULES' })
 export class ExamSchedule extends Document {
   @Prop({ type: Types.ObjectId, ref: 'Exam', required: true })
   examId: Types.ObjectId;

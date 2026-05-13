@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-@Schema({ timestamps: true, versionKey: false })
+@Schema({ timestamps: true, versionKey: false, collection: 'ACADEMIC_SESSIONS' })
 export class AcademicSession extends Document {
   @Prop({ required: true })
   name: string; // e.g. "2026-2027"

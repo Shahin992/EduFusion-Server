@@ -3,7 +3,7 @@ import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Institute } from './institute.schema';
 import { Student } from './student.schema';
 
-@Schema({ timestamps: true, versionKey: false })
+@Schema({ timestamps: true, versionKey: false, collection: 'FEES' })
 export class Fee extends Document {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Institute', required: true })
   instituteId: Institute;

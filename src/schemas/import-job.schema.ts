@@ -3,7 +3,7 @@ import { Document, Types } from 'mongoose';
 
 export type ImportJobDocument = ImportJob & Document;
 
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, collection: 'IMPORT_JOBS' })
 export class ImportJob {
   @Prop({ required: true, type: Types.ObjectId, ref: 'Institute' })
   instituteId: Types.ObjectId;

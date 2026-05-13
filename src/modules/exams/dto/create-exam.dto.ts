@@ -1,4 +1,4 @@
-import { IsString, IsEnum, IsDateString, IsMongoId, IsOptional, IsArray, ValidateNested, IsNumber } from 'class-validator';
+import { IsString, IsEnum, IsDateString, IsMongoId, IsOptional, IsArray, ValidateNested, IsNumber, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 
 class ExamSubjectDto {
@@ -22,6 +22,10 @@ export class CreateExamDto {
   @IsOptional()
   @IsMongoId()
   classId?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  resultPublished?: boolean;
 
   @IsOptional()
   @IsArray()

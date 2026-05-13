@@ -17,6 +17,9 @@ export class ResultsController {
     @Param('classId') classId: string,
     @Request() req,
   ) {
+    if (!['admin', 'superadmin', 'teacher'].includes(req.user.role)) {
+      throw new Error('Unauthorized');
+    }
     return this.resultsService.getClassResults(examId, classId, req.user.instituteId);
   }
 
@@ -26,9 +29,8 @@ export class ResultsController {
     if (req.user.role !== 'student') {
       throw new Error('Unauthorized');
     }
-    return this.resultsService.getStudentResult(req.user.studentId, examId, req.user.instituteId);
+    return this.resultsService.getStudentResult(req.user.studentId, examId, req.user.instituteId, false);
   }
-
   @Get('student/:studentId/exam/:examId')
   @ApiOperation({ summary: 'Get individual student result' })
   async getStudentResult(
@@ -36,6 +38,7 @@ export class ResultsController {
     @Param('examId') examId: string,
     @Request() req,
   ) {
-    return this.resultsService.getStudentResult(studentId, examId, req.user.instituteId);
+    const isStaff = ['admin', 'superadmin', 'teacher'].includes(req.user.role);
+    return this.resultsService.getStudentResult(studentId, examId, req.user.instituteId, isStaff);
   }
 }

@@ -88,7 +88,8 @@ export class AuthService {
             branding: institute.branding,
             isOnboarded: institute.isOnboarded
           } : null
-        }
+        },
+        isOnboarded: institute?.isOnboarded || false
       };
     } catch (error) {
       console.error('[AuthService] Login failed at JWT/Object stage:', error);
