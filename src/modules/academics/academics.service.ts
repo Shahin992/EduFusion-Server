@@ -15,6 +15,14 @@ export class AcademicsService {
 
   // Session Methods
   async createSession(instituteId: string, data: any) {
+    if (!data.name || !data.startDate || !data.endDate) {
+      throw new BadRequestException('Session name, start date and end date are required');
+    }
+
+    if (new Date(data.startDate) > new Date(data.endDate)) {
+      throw new BadRequestException('Start date cannot be after end date');
+    }
+
     if (data.isActive) {
       await this.sessionModel.updateMany({ instituteId }, { isActive: false });
     }
@@ -30,13 +38,24 @@ export class AcademicsService {
 
   // Class Methods
   async createClass(instituteId: string, data: any) {
+    if (!data.name || data.name.trim() === '') {
+      throw new BadRequestException('Class name is required');
+    }
+
     const existingClass = await this.classModel.findOne({ 
       instituteId: new Types.ObjectId(instituteId), 
-      name: data.name 
+      name: data.name.trim() 
     });
-    if (existingClass) return existingClass;
+    
+    if (existingClass) {
+      throw new BadRequestException(`Class "${data.name}" already exists`);
+    }
 
-    const academicClass = new this.classModel({ ...data, instituteId: new Types.ObjectId(instituteId) });
+    const academicClass = new this.classModel({ 
+      ...data, 
+      name: data.name.trim(),
+      instituteId: new Types.ObjectId(instituteId) 
+    });
     return academicClass.save();
   }
 
