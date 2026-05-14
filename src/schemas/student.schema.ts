@@ -34,6 +34,9 @@ export class Student extends Document {
   address: string;
 
   @Prop()
+  portalEmail: string; // The auto-generated email used for portal login
+
+  @Prop()
   fatherName: string;
 
   @Prop()

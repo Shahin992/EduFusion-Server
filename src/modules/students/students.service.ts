@@ -134,31 +134,49 @@ export class StudentsService {
     try {
       const savedStudent = await createdStudent.save();
 
-      // Create a User record for the student portal
-      const studentEmail = `${registrationNumber.toLowerCase()}@edufusion.com`;
-      const hashedPassword = await bcrypt.hash('student123', 10); // Default password
+      try {
+        // Create a User record for the student portal
+        // Append institute short ID to ensure global email uniqueness
+        const studentEmail = `${registrationNumber.toLowerCase()}.${instituteId.slice(-5)}@edufusion.com`;
+        const hashedPassword = await bcrypt.hash(registrationNumber, 10); // Default password is Registration Number
 
-      await this.userModel.create({
-        email: studentEmail,
-        passwordHash: hashedPassword,
-        name: savedStudent.name,
-        role: 'student',
-        instituteId: instId,
-        studentId: savedStudent._id,
-        isActive: true,
-      });
+        await this.studentModel.updateOne(
+          { _id: savedStudent._id },
+          { $set: { portalEmail: studentEmail } }
+        );
 
-      return savedStudent;
+        await this.userModel.create({
+          email: studentEmail,
+          passwordHash: hashedPassword,
+          name: savedStudent.name,
+          role: 'student',
+          instituteId: instId,
+          studentId: savedStudent._id,
+          isActive: true,
+        });
+
+        return savedStudent;
+      } catch (userError) {
+        // Rollback student creation if user creation fails
+        await this.studentModel.deleteOne({ _id: savedStudent._id });
+        
+        if (userError.code === 11000) {
+          throw new ConflictException('A student user with this email or registration already exists in the portal system.');
+        }
+        throw userError;
+      }
     } catch (error) {
+      if (error instanceof ConflictException) throw error;
+
       if (error.code === 11000) {
-        const key = Object.keys(error.keyPattern)[0];
-        if (key === 'rollNumber' || error.message.includes('rollNumber')) {
-          throw new ConflictException(`Roll number ${rollNumber} already exists in this class for the selected session`);
+        const keyPattern = error.keyPattern || {};
+        if (keyPattern.rollNumber || error.message.includes('rollNumber')) {
+          throw new ConflictException(`Roll number ${rollNumber} is already assigned to another student in this class.`);
         }
-        if (key === 'registrationNumber' || error.message.includes('registrationNumber')) {
-          throw new ConflictException(`Registration number ${registrationNumber} already exists`);
+        if (keyPattern.registrationNumber || error.message.includes('registrationNumber')) {
+          throw new ConflictException(`Registration number ${registrationNumber} already exists in this institute.`);
         }
-        throw new ConflictException('A student with similar unique details already exists');
+        throw new ConflictException('A student with similar unique details (Roll or Registration) already exists.');
       }
       throw error;
     }
@@ -296,16 +314,39 @@ export class StudentsService {
       await this.assertSessionBelongsToInstitute(updateStudentDto.academicSessionId, instituteId);
     }
 
-    const student = await this.studentModel.findOneAndUpdate(
-      { _id: new Types.ObjectId(id), instituteId: new Types.ObjectId(instituteId) },
-      { $set: updateStudentDto },
-      { new: true },
-    );
+    try {
+      const student = await this.studentModel.findOneAndUpdate(
+        { _id: new Types.ObjectId(id), instituteId: new Types.ObjectId(instituteId) },
+        { $set: updateStudentDto },
+        { new: true },
+      );
 
-    if (!student) {
-      throw new NotFoundException('Student not found');
+      if (!student) {
+        throw new NotFoundException('Student not found');
+      }
+
+      // Sync name in User portal if name changed
+      if (updateStudentDto.name) {
+        await this.userModel.updateOne(
+          { studentId: new Types.ObjectId(id) },
+          { $set: { name: updateStudentDto.name } }
+        );
+      }
+
+      return student;
+    } catch (error) {
+      if (error.code === 11000) {
+        const keyPattern = error.keyPattern || {};
+        if (keyPattern.rollNumber || error.message.includes('rollNumber')) {
+          throw new ConflictException(`Update failed: Roll number is already assigned to another student in this class.`);
+        }
+        if (keyPattern.registrationNumber || error.message.includes('registrationNumber')) {
+          throw new ConflictException(`Update failed: Registration number already exists in this institute.`);
+        }
+        throw new ConflictException('Update failed: A student with similar unique details already exists.');
+      }
+      throw error;
     }
-    return student;
   }
 
   async remove(id: string, instituteId: string) {

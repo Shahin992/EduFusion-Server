@@ -28,6 +28,20 @@ export class AcademicsController {
     return { success: true, data };
   }
 
+  @Patch('sessions/:sessionId')
+  @Roles('admin')
+  async updateSession(@Request() req: any, @Param('sessionId') sessionId: string, @Body() data: any) {
+    const result = await this.academicsService.updateSession(req.user.instituteId, sessionId, data);
+    return { success: true, data: result };
+  }
+
+  @Delete('sessions/:sessionId')
+  @Roles('admin')
+  async deleteSession(@Request() req: any, @Param('sessionId') sessionId: string) {
+    const result = await this.academicsService.deleteSession(req.user.instituteId, sessionId);
+    return { success: true, data: result };
+  }
+
   @Post('classes')
   @Roles('admin')
   async createClass(@Request() req: any, @Body() data: any) {

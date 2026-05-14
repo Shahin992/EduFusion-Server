@@ -36,6 +36,34 @@ export class AcademicsService {
       .sort({ startDate: -1 });
   }
 
+  async updateSession(instituteId: string, sessionId: string, data: any) {
+    if (data.isActive) {
+      await this.sessionModel.updateMany(
+        { instituteId: new Types.ObjectId(instituteId), _id: { $ne: new Types.ObjectId(sessionId) } },
+        { isActive: false }
+      );
+    }
+    const updatedSession = await this.sessionModel.findOneAndUpdate(
+      { _id: new Types.ObjectId(sessionId), instituteId: new Types.ObjectId(instituteId) },
+      { $set: data },
+      { new: true }
+    );
+    if (!updatedSession) throw new NotFoundException('Session not found');
+    return updatedSession;
+  }
+
+  async deleteSession(instituteId: string, sessionId: string) {
+    const session = await this.sessionModel.findOne({
+      _id: new Types.ObjectId(sessionId),
+      instituteId: new Types.ObjectId(instituteId)
+    });
+    if (!session) throw new NotFoundException('Session not found');
+    if (session.isActive) throw new BadRequestException('Cannot delete an active session');
+    
+    await this.sessionModel.deleteOne({ _id: new Types.ObjectId(sessionId) });
+    return { success: true };
+  }
+
   // Class Methods
   async createClass(instituteId: string, data: any) {
     if (!data.name || data.name.trim() === '') {
