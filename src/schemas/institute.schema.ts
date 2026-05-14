@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: true, versionKey: false, collection: 'INSTITUTES' })
 export class Institute extends Document {
@@ -49,6 +49,12 @@ export class Institute extends Document {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  adminId: Types.ObjectId;
+
+  @Prop({ default: 1 })
+  instituteCode: number; // For smart registration number (e.g. 05)
 }
 
 export const InstituteSchema = SchemaFactory.createForClass(Institute);

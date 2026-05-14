@@ -11,6 +11,9 @@ export class AcademicClass extends Document {
 
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Subject' }] })
   subjects: Types.ObjectId[];
+
+  @Prop({ default: 1 })
+  classCode: number; // For smart registration number (e.g. 08)
 }
 
 export const AcademicClassSchema = SchemaFactory.createForClass(AcademicClass);

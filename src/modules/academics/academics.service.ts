@@ -79,10 +79,17 @@ export class AcademicsService {
       throw new BadRequestException(`Class "${data.name}" already exists`);
     }
 
+    const lastClass = await this.classModel
+      .findOne({ instituteId: new Types.ObjectId(instituteId) })
+      .sort({ classCode: -1 })
+      .exec();
+    const nextCode = lastClass ? (lastClass.classCode || 0) + 1 : 1;
+
     const academicClass = new this.classModel({ 
       ...data, 
       name: data.name.trim(),
-      instituteId: new Types.ObjectId(instituteId) 
+      instituteId: new Types.ObjectId(instituteId),
+      classCode: nextCode
     });
     return academicClass.save();
   }
@@ -90,7 +97,7 @@ export class AcademicsService {
   async updateClass(instituteId: string, classId: string, data: any) {
     const updatedClass = await this.classModel.findOneAndUpdate(
       { _id: new Types.ObjectId(classId), instituteId: new Types.ObjectId(instituteId) },
-      { $set: { name: data.name } },
+      { $set: data },
       { new: true },
     ).populate('subjects');
 

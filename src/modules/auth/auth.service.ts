@@ -115,11 +115,16 @@ export class AuthService {
       const trialExpiresAt = new Date();
       trialExpiresAt.setDate(trialExpiresAt.getDate() + trialDays);
 
+      // Get next institute code
+      const lastInstitute = await this.instituteModel.findOne().sort({ instituteCode: -1 }).exec();
+      const nextCode = lastInstitute ? (lastInstitute.instituteCode || 0) + 1 : 1;
+
       const institute = new this.instituteModel({
         name: instituteName,
         slug: slug,
         isActive: true,
         trialExpiresAt: trialExpiresAt,
+        instituteCode: nextCode,
         branding: {
           email: userFields.email
         }

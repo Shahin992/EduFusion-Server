@@ -80,11 +80,13 @@ export class InstitutesService {
     if (normalizedClasses.length > 0) {
       this.logger.log(`Starting class creation for institute ${id}. Count: ${normalizedClasses.length}`);
       
+      let classIdx = 1;
       for (const clsData of normalizedClasses) {
         this.logger.log(`Creating class ${clsData.name}`);
         const academicClass = new this.classModel({
           name: clsData.name,
           instituteId: instId,
+          classCode: classIdx++,
           subjects: []
         });
         const savedClass = await academicClass.save();

@@ -93,18 +93,23 @@ export class StudentsService {
 
     // Auto-generate registration number if not provided
     if (!registrationNumber) {
-      const lastRegStudent = await this.studentModel
-        .findOne({ instituteId: instId })
-        .sort({ registrationNumber: -1 })
-        .exec();
-      
       const year = new Date().getFullYear();
-      if (lastRegStudent && lastRegStudent.registrationNumber?.startsWith(`REG-${year}-`)) {
-        const parts = lastRegStudent.registrationNumber.split('-');
-        const lastNum = parseInt(parts[2]);
-        registrationNumber = `REG-${year}-${(lastNum + 1).toString().padStart(5, '0')}`;
-      } else {
-        registrationNumber = `REG-${year}-00001`;
+      const institute = await this.instituteModel.findById(instId);
+      const targetClass = await this.classModel.findById(clsId);
+
+      const instCode = (institute?.instituteCode || 1).toString().padStart(2, '0');
+      const clsCode = (targetClass?.classCode || 1).toString().padStart(2, '0');
+      const rollSuffix = (parseInt(rollNumber) || 1).toString().padStart(2, '0');
+
+      registrationNumber = `${year}${instCode}${clsCode}${rollSuffix}`;
+
+      // Check if this generated registration number already exists (unlikely but safe)
+      const existingReg = await this.studentModel.findOne({ instituteId: instId, registrationNumber });
+      if (existingReg) {
+        // Fallback to incremental if there's a collision
+        const lastReg = await this.studentModel.findOne({ instituteId: instId }).sort({ registrationNumber: -1 }).exec();
+        const lastNum = lastReg ? parseInt(lastReg.registrationNumber.slice(-2)) : 0;
+        registrationNumber = `${year}${instCode}${clsCode}${(lastNum + 1).toString().padStart(2, '0')}`;
       }
     } else {
       const existingReg = await this.studentModel.findOne({ instituteId: instId, registrationNumber });
