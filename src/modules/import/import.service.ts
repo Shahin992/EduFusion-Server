@@ -45,4 +45,11 @@ export class ImportService {
 
     return job;
   }
+
+  async getPastImports(instituteId: string) {
+    return this.importJobModel
+      .find({ instituteId: new Types.ObjectId(instituteId) })
+      .sort({ createdAt: -1 })
+      .exec();
+  }
 }

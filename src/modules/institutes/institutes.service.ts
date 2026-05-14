@@ -115,7 +115,15 @@ export class InstitutesService {
       id,
       {
         $set: {
-          branding,
+          name: branding?.name || '',
+          logoUrl: branding?.logoUrl || '',
+          branding: {
+            address: branding?.address || '',
+            phone: branding?.phone || '',
+            email: branding?.email || '',
+            principalName: branding?.principalName || '',
+            principalSignatureUrl: branding?.principalSignatureUrl || '',
+          },
           gradingRules,
           isOnboarded: true,
           onboardingStep: 3,
@@ -131,3 +139,4 @@ export class InstitutesService {
     return institute;
   }
 }
+

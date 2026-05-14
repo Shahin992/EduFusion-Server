@@ -74,4 +74,10 @@ export class ImportController {
   async getStatus(@Param('jobId') jobId: string, @Request() req) {
     return this.importService.getImportStatus(jobId, req.user.instituteId);
   }
+
+  @Get()
+  @ApiOperation({ summary: 'List past import jobs' })
+  async getPastImports(@Request() req) {
+    return this.importService.getPastImports(req.user.instituteId);
+  }
 }
