@@ -52,7 +52,7 @@ export class ImportController {
   @Post('students')
   @ApiOperation({ summary: 'Initiate bulk student import' })
   async importStudents(@Body() body: any, @Request() req) {
-    const { data, mapping, classId, academicSessionId } = body;
+    const { data, mapping, classId, academicSessionId, fileName } = body;
 
     if (!data || !mapping || !classId) {
       throw new BadRequestException('Data, mapping, and classId are required');
@@ -64,6 +64,7 @@ export class ImportController {
       data,
       mapping,
       { classId, academicSessionId },
+      fileName,
     );
 
     return { success: true, jobId: job._id };

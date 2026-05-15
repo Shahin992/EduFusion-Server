@@ -11,6 +11,9 @@ export class ImportJob {
   @Prop({ required: true })
   type: string; // e.g., 'students'
 
+  @Prop()
+  fileName?: string;
+
   @Prop({ required: true, enum: ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'] })
   status: string;
 

@@ -12,10 +12,11 @@ export class ImportService {
     @InjectModel(ImportJob.name) private importJobModel: Model<ImportJobDocument>,
   ) {}
 
-  async createImportJob(instituteId: string, type: string, data: any[], mapping: any, extraData: any) {
+  async createImportJob(instituteId: string, type: string, data: any[], mapping: any, extraData: any, fileName?: string) {
     const job = new this.importJobModel({
       instituteId: new Types.ObjectId(instituteId),
       type,
+      fileName,
       status: 'PENDING',
       totalRows: data.length,
     });

@@ -116,6 +116,27 @@ export class StudentsService {
       if (existingReg) throw new ConflictException(`Registration number ${registrationNumber} already exists`);
     }
 
+    // Smart Duplicate Check: Prevent same name + phone/guardian in same class/session
+    const duplicateCriteria: any = {
+      instituteId: instId,
+      classId: clsId,
+      academicSessionId: sessId,
+      name: { $regex: new RegExp(`^${createStudentDto.name}$`, 'i') },
+    };
+
+    if (createStudentDto.phone) {
+      duplicateCriteria.phone = createStudentDto.phone;
+    } else if (createStudentDto.fatherPhone) {
+      duplicateCriteria.fatherPhone = createStudentDto.fatherPhone;
+    } else if (createStudentDto.fatherName) {
+      duplicateCriteria.fatherName = { $regex: new RegExp(`^${createStudentDto.fatherName}$`, 'i') };
+    }
+
+    const existingStudent = await this.studentModel.findOne(duplicateCriteria);
+    if (existingStudent) {
+      throw new ConflictException(`Student '${createStudentDto.name}' is already enrolled in this class.`);
+    }
+
     // Double check Roll Number uniqueness if provided
     if (rollNumber) {
       const existingRoll = await this.studentModel.findOne({
