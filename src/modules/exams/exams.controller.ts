@@ -33,8 +33,20 @@ export class ExamsController {
 
   @Get()
   @ApiOperation({ summary: 'Get all exams' })
-  async findAll(@Request() req, @Query('classId') classId?: string) {
-    return this.examsService.findAll(req.user.instituteId, classId);
+  async findAll(
+    @Request() req, 
+    @Query('classId') classId?: string,
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.examsService.findAll(
+      req.user.instituteId, 
+      classId, 
+      search, 
+      page ? parseInt(page) : undefined, 
+      limit ? parseInt(limit) : undefined
+    );
   }
 
   @Get('active')

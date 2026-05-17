@@ -32,6 +32,18 @@ export class MarksService {
     const gradingRules = institute.gradingRules || [];
     const totalMarks = schedule.totalMarks;
 
+    // Validate marks before performing bulk upsert
+    for (const item of bulkDto.marks) {
+      if (item.marksObtained < 0) {
+        throw new BadRequestException(`Marks cannot be negative (Student: ${item.studentId})`);
+      }
+      if (item.marksObtained > totalMarks) {
+        throw new BadRequestException(
+          `Marks obtained (${item.marksObtained}) cannot exceed maximum subject total marks (${totalMarks})`
+        );
+      }
+    }
+
     const bulkOps = bulkDto.marks.map((item) => {
       const percentage = (item.marksObtained / totalMarks) * 100;
       
@@ -101,6 +113,17 @@ export class MarksService {
         if (!schedule) return null;
 
         const totalMarks = schedule.totalMarks;
+
+        // Validate marks
+        if (item.marksObtained < 0) {
+          throw new BadRequestException(`Marks cannot be negative`);
+        }
+        if (item.marksObtained > totalMarks) {
+          throw new BadRequestException(
+            `Marks obtained (${item.marksObtained}) cannot exceed maximum subject total marks (${totalMarks})`
+          );
+        }
+
         const percentage = (item.marksObtained / totalMarks) * 100;
 
         let grade = 'F';

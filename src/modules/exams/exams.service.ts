@@ -65,18 +65,53 @@ export class ExamsService {
     return savedExam;
   }
 
-  async findAll(instituteId: string, classId?: string) {
-    const query: any = { instituteId: new Types.ObjectId(instituteId) };
+  async findAll(instituteId: string, classId?: string, search?: string, page?: number, limit?: number) {
+    const instId = new Types.ObjectId(instituteId);
+    const query: any = { instituteId: instId };
+    
     if (classId) {
-      query.classId = new Types.ObjectId(classId);
+      try {
+        const objId = new Types.ObjectId(classId);
+        query.classId = { $in: [classId, objId] };
+      } catch (e) {
+        query.classId = classId;
+      }
+    }
+    
+    if (search) {
+      // Find classes matching the search term to include in the exam search
+      const matchedClasses = await this.classModel.find({ 
+        instituteId: instId, 
+        name: { $regex: search, $options: 'i' } 
+      });
+      const classIds = matchedClasses.map(c => c._id);
+      
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { classId: { $in: classIds } }
+      ];
     }
 
-    return this.examModel
+    const mQuery = this.examModel
       .find(query)
       .populate('classId', 'name')
       .populate('subjects.subjectId', 'name')
-      .sort({ createdAt: -1 })
-      .exec();
+      .sort({ createdAt: -1 });
+
+    if (page && limit) {
+      const skip = (page - 1) * limit;
+      mQuery.skip(skip).limit(limit);
+      
+      const [data, total] = await Promise.all([
+        mQuery.exec(),
+        this.examModel.countDocuments(query)
+      ]);
+      
+      return { data, total, page, limit };
+    }
+
+    // If no pagination provided, return as array for backward compatibility
+    return mQuery.exec();
   }
 
   async findActive(instituteId: string) {

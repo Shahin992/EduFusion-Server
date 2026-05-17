@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsMongoId, IsEnum, IsOptional, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsNumber, IsMongoId, IsEnum, IsOptional, IsArray, ValidateNested, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class MarkItemDto {
@@ -6,6 +6,7 @@ export class MarkItemDto {
   studentId: string;
 
   @IsNumber()
+  @Min(0)
   marksObtained: number;
 
   @IsEnum(['Present', 'Absent', 'Expelled'])
@@ -37,6 +38,7 @@ export class StudentMarkItemDto {
   subjectId: string;
 
   @IsNumber()
+  @Min(0)
   marksObtained: number;
 
   @IsEnum(['Present', 'Absent', 'Expelled'])
