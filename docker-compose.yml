@@ -5,14 +5,13 @@ services:
     build: .
     ports:
       - "3005:3005"
+    env_file:
+      - .env
     depends_on:
-      mongodb:
-        condition: service_healthy
       redis:
         condition: service_healthy
     environment:
       - NODE_ENV=production
-      - MONGODB_URI=mongodb://mongodb:27017/edufusion
       - REDIS_HOST=redis
       - REDIS_PORT=6379
     healthcheck:
@@ -21,20 +20,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-    networks:
-      - edufusion-network
-
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27018:27017"
-    healthcheck:
-      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    volumes:
-      - mongodb_data:/data/db
     networks:
       - edufusion-network
 
@@ -53,6 +38,3 @@ services:
 networks:
   edufusion-network:
     driver: bridge
-
-volumes:
-  mongodb_data:

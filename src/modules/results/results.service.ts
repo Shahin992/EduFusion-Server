@@ -15,7 +15,7 @@ export class ResultsService {
     @InjectModel(Student.name) private studentModel: Model<Student>,
   ) {}
 
-  async getClassResults(examId: string, classId: string, instituteId: string) {
+  async getClassResults(examId: string, classId: string, instituteId: string, page?: number, limit?: number, search?: string) {
     const instId = new Types.ObjectId(instituteId);
     const exId = new Types.ObjectId(examId);
     const clId = new Types.ObjectId(classId);
@@ -37,7 +37,7 @@ export class ResultsService {
     const students = await this.studentModel.find({
       classId: clId,
       instituteId: instId,
-      isActive: true,
+      status: 'Active',
     }).sort({ rollNumber: 1 });
 
     const gradingRules = institute.gradingRules || [];
@@ -51,10 +51,27 @@ export class ResultsService {
     });
 
     // Rank students by GPA, then total marks
-    return results.sort((a, b) => {
+    let sortedResults = results.sort((a, b) => {
       if (b.gpa !== a.gpa) return b.gpa - a.gpa;
       return b.totalMarksObtained - a.totalMarksObtained;
     });
+
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      sortedResults = sortedResults.filter(
+        (r) =>
+          r.studentName?.toLowerCase().includes(lowerSearch) ||
+          r.rollNumber?.toString().includes(lowerSearch),
+      );
+    }
+
+    if (page && limit) {
+      const skip = (page - 1) * limit;
+      const data = sortedResults.slice(skip, skip + limit);
+      return { data, total: sortedResults.length, page, limit };
+    }
+
+    return sortedResults;
   }
 
   async getStudentResult(studentId: string, examId: string, instituteId: string, isStaff: boolean = false) {

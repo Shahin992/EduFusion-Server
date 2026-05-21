@@ -39,13 +39,15 @@ export class ExamsController {
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('resultPublished') resultPublished?: string,
   ) {
     return this.examsService.findAll(
       req.user.instituteId, 
       classId, 
       search, 
       page ? parseInt(page) : undefined, 
-      limit ? parseInt(limit) : undefined
+      limit ? parseInt(limit) : undefined,
+      resultPublished === 'true' ? true : resultPublished === 'false' ? false : undefined
     );
   }
 

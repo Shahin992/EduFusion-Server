@@ -1,4 +1,4 @@
-import { Controller, Get, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards, Request, Query } from '@nestjs/common';
 import { ResultsService } from './results.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
@@ -16,11 +16,21 @@ export class ResultsController {
     @Param('examId') examId: string,
     @Param('classId') classId: string,
     @Request() req,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('search') search?: string,
   ) {
     if (!['admin', 'superadmin', 'teacher'].includes(req.user.role)) {
       throw new Error('Unauthorized');
     }
-    return this.resultsService.getClassResults(examId, classId, req.user.instituteId);
+    return this.resultsService.getClassResults(
+      examId,
+      classId,
+      req.user.instituteId,
+      page ? parseInt(page) : undefined,
+      limit ? parseInt(limit) : undefined,
+      search
+    );
   }
 
   @Get('me/exam/:examId')

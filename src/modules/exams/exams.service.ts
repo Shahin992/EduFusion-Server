@@ -65,9 +65,13 @@ export class ExamsService {
     return savedExam;
   }
 
-  async findAll(instituteId: string, classId?: string, search?: string, page?: number, limit?: number) {
+  async findAll(instituteId: string, classId?: string, search?: string, page?: number, limit?: number, resultPublished?: boolean) {
     const instId = new Types.ObjectId(instituteId);
     const query: any = { instituteId: instId };
+    
+    if (resultPublished !== undefined) {
+      query.resultPublished = resultPublished;
+    }
     
     if (classId) {
       try {
