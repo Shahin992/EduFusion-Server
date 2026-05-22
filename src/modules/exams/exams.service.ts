@@ -6,6 +6,7 @@ import { ExamSchedule } from '../../schemas/exam-schedule.schema';
 import { AcademicClass } from '../../schemas/academic-class.schema';
 import { AcademicSession } from '../../schemas/academic-session.schema';
 import { Subject } from '../../schemas/subject.schema';
+import { Mark } from '../../schemas/mark.schema';
 import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { BulkCreateScheduleDto } from './dto/bulk-create-schedule.dto';
@@ -18,6 +19,7 @@ export class ExamsService {
     @InjectModel(AcademicClass.name) private classModel: Model<AcademicClass>,
     @InjectModel(AcademicSession.name) private sessionModel: Model<AcademicSession>,
     @InjectModel(Subject.name) private subjectModel: Model<Subject>,
+    @InjectModel(Mark.name) private markModel: Model<Mark>,
   ) {}
 
   async create(createExamDto: CreateExamDto, instituteId: string): Promise<Exam> {
@@ -157,6 +159,14 @@ export class ExamsService {
     
     if (new Date(startDate) > new Date(endDate)) {
       throw new BadRequestException('Start date cannot be after end date');
+    }
+
+    // 2. Publish Validation
+    if (updateExamDto.resultPublished === true) {
+      const marksCount = await this.markModel.countDocuments({ examId: examId, instituteId: instId });
+      if (marksCount === 0) {
+        throw new BadRequestException('Cannot publish result. No marks have been entered for this exam yet.');
+      }
     }
 
     // Update Exam document

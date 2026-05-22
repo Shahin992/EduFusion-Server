@@ -7,6 +7,7 @@ import { ExamSchedule, ExamScheduleSchema } from '../../schemas/exam-schedule.sc
 import { AcademicClass, AcademicClassSchema } from '../../schemas/academic-class.schema';
 import { AcademicSession, AcademicSessionSchema } from '../../schemas/academic-session.schema';
 import { Subject, SubjectSchema } from '../../schemas/subject.schema';
+import { Mark, MarkSchema } from '../../schemas/mark.schema';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Subject, SubjectSchema } from '../../schemas/subject.schema';
       { name: AcademicClass.name, schema: AcademicClassSchema },
       { name: AcademicSession.name, schema: AcademicSessionSchema },
       { name: Subject.name, schema: SubjectSchema },
+      { name: Mark.name, schema: MarkSchema },
     ]),
   ],
   controllers: [ExamsController],

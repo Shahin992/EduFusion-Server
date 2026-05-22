@@ -28,7 +28,7 @@ export class AuthService {
     
     if (!user) {
       console.warn(`[AuthService] User not found: ${email}`);
-      throw new NotFoundException('User with this email not found');
+      throw new NotFoundException('User not found');
     }
 
     console.log(`[AuthService] User found, comparing passwords...`);
