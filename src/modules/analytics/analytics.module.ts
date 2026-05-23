@@ -8,6 +8,9 @@ import { Fee, FeeSchema } from '../../schemas/fee.schema';
 import { AcademicClass, AcademicClassSchema } from '../../schemas/academic-class.schema';
 import { Exam, ExamSchema } from '../../schemas/exam.schema';
 import { Mark, MarkSchema } from '../../schemas/mark.schema';
+import { Institute, InstituteSchema } from '../../schemas/institute.schema';
+import { Lead, LeadSchema } from '../../schemas/lead.schema';
+import { Salary, SalarySchema } from '../../schemas/salary.schema';
 
 @Module({
   imports: [
@@ -18,6 +21,9 @@ import { Mark, MarkSchema } from '../../schemas/mark.schema';
       { name: AcademicClass.name, schema: AcademicClassSchema },
       { name: Exam.name, schema: ExamSchema },
       { name: Mark.name, schema: MarkSchema },
+      { name: Institute.name, schema: InstituteSchema },
+      { name: Lead.name, schema: LeadSchema },
+      { name: Salary.name, schema: SalarySchema },
     ]),
   ],
   controllers: [AnalyticsController],
