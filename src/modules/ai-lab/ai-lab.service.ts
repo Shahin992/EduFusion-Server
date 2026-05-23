@@ -113,10 +113,23 @@ export class AiLabService {
     };
   }
 
-  async getQuestionSets(instituteId: string, subject?: string) {
+  async getQuestionSets(instituteId: string, subject?: string, page: number = 1, limit: number = 10) {
     const filter: any = { instituteId: new Types.ObjectId(instituteId) };
-    if (subject) filter.subject = subject;
-    return this.aiQuestionSetModel.find(filter).sort({ createdAt: -1 }).exec();
+    if (subject) {
+      filter.$or = [
+        { subject: { $regex: subject, $options: 'i' } },
+        { name: { $regex: subject, $options: 'i' } }
+      ];
+    }
+    
+    const skip = (page - 1) * limit;
+    
+    const [data, total] = await Promise.all([
+      this.aiQuestionSetModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec(),
+      this.aiQuestionSetModel.countDocuments(filter).exec()
+    ]);
+
+    return { data, total, page, limit };
   }
 
   async deleteQuestionSet(id: string, instituteId: string) {

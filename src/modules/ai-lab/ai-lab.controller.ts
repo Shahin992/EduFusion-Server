@@ -64,8 +64,13 @@ export class AiLabController {
 
   @Get('sets')
   @ApiOperation({ summary: 'Get saved AI question sets' })
-  async getQuestionSets(@Request() req, @Query('subject') subject?: string) {
-    return this.aiLabService.getQuestionSets(req.user.instituteId, subject);
+  async getQuestionSets(
+    @Request() req, 
+    @Query('subject') subject?: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10'
+  ) {
+    return this.aiLabService.getQuestionSets(req.user.instituteId, subject, parseInt(page), parseInt(limit));
   }
 
   @Get('sets/:id')

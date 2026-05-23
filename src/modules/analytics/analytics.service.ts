@@ -61,8 +61,8 @@ export class AnalyticsService {
 
     // KPIs
     const [totalStudents, totalTeachers, totalExams, fees] = await Promise.all([
-      this.studentModel.countDocuments({ instituteId: instId, isActive: true, ...dateFilter }),
-      this.teacherModel.countDocuments({ instituteId: instId, isActive: true, ...dateFilter }),
+      this.studentModel.countDocuments({ instituteId: instId, status: 'Active', ...dateFilter }),
+      this.teacherModel.countDocuments({ instituteId: instId, status: 'Active', ...dateFilter }),
       this.examModel.countDocuments({ instituteId: instId, ...dateFilter }),
       this.feeModel.aggregate([
         { $match: { instituteId: instId, status: 'Paid', ...monthMatch } },
@@ -116,17 +116,17 @@ export class AnalyticsService {
         }
       },
       lists: {
-        recentStudents: recentStudents.map(s => ({
+        recentStudents: recentStudents.map((s: any) => ({
           name: s.name,
           className: (s.classId as any)?.name || 'N/A',
           createdAt: s.createdAt
         })),
-        recentResults: rawRecentResults.map(e => ({
+        recentResults: rawRecentResults.map((e: any) => ({
           examName: e.name,
           className: (e.classId as any)?.name || 'N/A',
           createdAt: e.updatedAt || e.createdAt
         })),
-        upcomingExams: rawUpcomingExams.map(e => ({
+        upcomingExams: rawUpcomingExams.map((e: any) => ({
           examName: e.name,
           className: (e.classId as any)?.name || 'N/A',
           date: e.date
@@ -310,12 +310,12 @@ export class AnalyticsService {
         subscriptionPlans
       },
       lists: {
-        recentInstitutes: recentInstitutes.map(i => ({
+        recentInstitutes: recentInstitutes.map((i: any) => ({
           name: i.name,
           status: i.status,
           createdAt: i.createdAt
         })),
-        recentLeads: recentLeads.map(l => ({
+        recentLeads: recentLeads.map((l: any) => ({
           name: l.name,
           instituteName: l.instituteName,
           createdAt: l.createdAt
