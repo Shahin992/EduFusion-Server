@@ -94,8 +94,11 @@ export class AuthController {
   @Throttle({ default: { limit: 3, ttl: 60000 } })
   @ApiOperation({ summary: 'Request password reset' })
   @UsePipes(new ValidationPipe({ transform: true }))
-  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto, @Headers('origin') origin: string) {
-    const frontendOrigin = origin || process.env.FRONTEND_URL || 'http://localhost:5173';
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto, @Request() req) {
+    const origin = req.headers['origin'] || req.headers['referer'];
+    // Extract base URL from referer if origin is missing
+    const originBase = origin ? new URL(origin).origin : null;
+    const frontendOrigin = originBase || process.env.FRONTEND_URL || 'http://localhost:5173';
     return this.authService.forgotPassword(forgotPasswordDto.email, frontendOrigin);
   }
 
