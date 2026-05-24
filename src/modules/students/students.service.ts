@@ -42,6 +42,34 @@ export class StudentsService {
     }
   }
 
+  async getLastRollNumber(instituteId: string, classId: string, sessionId?: string): Promise<number> {
+    const filter: any = {
+      instituteId: new Types.ObjectId(instituteId),
+      classId: new Types.ObjectId(classId),
+    };
+
+    if (sessionId) {
+      filter.academicSessionId = new Types.ObjectId(sessionId);
+    } else {
+      const activeSession = await this.sessionModel.findOne({ instituteId: filter.instituteId, isActive: true });
+      if (activeSession) {
+        filter.academicSessionId = activeSession._id;
+      }
+    }
+
+    const lastStudent = await this.studentModel
+      .findOne(filter)
+      .sort({ rollNumber: -1 })
+      .collation({ locale: 'en_US', numericOrdering: true })
+      .exec();
+
+    if (lastStudent && lastStudent.rollNumber) {
+      const lastRoll = parseInt(lastStudent.rollNumber);
+      return isNaN(lastRoll) ? 0 : lastRoll;
+    }
+    return 0;
+  }
+
   async create(createStudentDto: CreateStudentDto, instituteId: string): Promise<Student> {
     const { classId } = createStudentDto;
     let { academicSessionId, rollNumber, registrationNumber } = createStudentDto;

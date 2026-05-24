@@ -24,44 +24,74 @@ export class ImportProcessor extends WorkerHost {
       let failedCount = 0;
       const errors = [];
 
-      for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        try {
-          // Map CSV row to CreateStudentDto using the mapping object
-          const payload: any = {
-            classId: extraData.classId,
-            academicSessionId: extraData.academicSessionId,
-          };
+      let currentRollNumber = await this.studentsService.getLastRollNumber(
+        instituteId,
+        extraData.classId,
+        extraData.academicSessionId
+      );
 
-          // Apply mapping
-          Object.keys(mapping).forEach((csvHeader) => {
-            const systemField = mapping[csvHeader];
-            if (systemField && row[csvHeader]) {
-              payload[systemField] = row[csvHeader];
+      const chunkSize = 10;
+      for (let i = 0; i < data.length; i += chunkSize) {
+        const chunk = data.slice(i, i + chunkSize);
+
+        const promises = chunk.map(async (row, chunkIndex) => {
+          const actualIndex = i + chunkIndex;
+          try {
+            // Map CSV row to CreateStudentDto using the mapping object
+            const payload: any = {
+              classId: extraData.classId,
+              academicSessionId: extraData.academicSessionId,
+            };
+
+            // Apply mapping
+            Object.keys(mapping).forEach((csvHeader) => {
+              const systemField = mapping[csvHeader];
+              if (systemField && row[csvHeader]) {
+                payload[systemField] = row[csvHeader];
+              }
+            });
+
+            // Safely assign sequential roll number if not provided in CSV
+            if (!payload.rollNumber) {
+              currentRollNumber++;
+              payload.rollNumber = currentRollNumber.toString();
             }
-          });
 
-          // Process row
-          await this.studentsService.create(payload, instituteId);
-          successCount++;
-        } catch (error) {
-          failedCount++;
-          errors.push({
-            row: i + 2, // +1 for 0-index, +1 for header
-            name: row[Object.keys(mapping).find(k => mapping[k] === 'name')] || 'Unknown',
-            reason: error.message || 'Import failed',
-          });
-        }
+            // Process row
+            await this.studentsService.create(payload, instituteId);
+            return { status: 'fulfilled' };
+          } catch (error) {
+            return {
+              status: 'rejected',
+              row: actualIndex + 2, // +1 for 0-index, +1 for header
+              name: row[Object.keys(mapping).find((k) => mapping[k] === 'name')] || 'Unknown',
+              reason: error.message || 'Import failed',
+            };
+          }
+        });
 
-        // Update progress every 10 rows
-        if (i % 10 === 0 || i === data.length - 1) {
-          await this.importJobModel.findByIdAndUpdate(jobId, {
-            processedRows: i + 1,
-            successCount,
-            failedCount,
-            errors,
-          });
-        }
+        const results = await Promise.all(promises);
+
+        results.forEach((result) => {
+          if (result.status === 'fulfilled') {
+            successCount++;
+          } else {
+            failedCount++;
+            errors.push({
+              row: result.row,
+              name: result.name,
+              reason: result.reason,
+            });
+          }
+        });
+
+        // Update progress every chunk
+        await this.importJobModel.findByIdAndUpdate(jobId, {
+          processedRows: Math.min(i + chunkSize, data.length),
+          successCount,
+          failedCount,
+          errors,
+        });
       }
 
       await this.importJobModel.findByIdAndUpdate(jobId, {
