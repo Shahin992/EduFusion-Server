@@ -30,6 +30,7 @@ export class ImportProcessor extends WorkerHost {
         extraData.academicSessionId
       );
 
+      // To improve performance, we can process them individually but without blocking the event loop too much
       const chunkSize = 10;
       for (let i = 0; i < data.length; i += chunkSize) {
         const chunk = data.slice(i, i + chunkSize);
@@ -92,6 +93,9 @@ export class ImportProcessor extends WorkerHost {
           failedCount,
           errors,
         });
+        
+        // Yield to event loop
+        await new Promise((resolve) => setTimeout(resolve, 10));
       }
 
       await this.importJobModel.findByIdAndUpdate(jobId, {

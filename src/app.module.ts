@@ -25,6 +25,8 @@ import { BullModule } from '@nestjs/bullmq';
 import { ImportModule } from './modules/import/import.module';
 import { EmailModule } from './modules/email/email.module';
 
+import { Redis } from 'ioredis';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -69,14 +71,17 @@ import { EmailModule } from './modules/email/email.module';
     }]),
     BullModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        connection: {
-          host: configService.get('redis.host'),
-          port: configService.get('redis.port'),
-          password: configService.get('redis.password'),
-          tls: configService.get('redis.tls') ? {} : undefined,
-        },
-      }),
+      useFactory: async (configService: ConfigService) => {
+        const url = configService.get('redis.url');
+        return {
+          connection: url ? new Redis(url, { maxRetriesPerRequest: null }) : {
+            host: configService.get('redis.host'),
+            port: configService.get('redis.port'),
+            password: configService.get('redis.password'),
+            tls: configService.get('redis.tls') ? {} : undefined,
+          },
+        };
+      },
       inject: [ConfigService],
     }),
     ImportModule,

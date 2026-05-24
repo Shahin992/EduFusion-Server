@@ -16,6 +16,7 @@ export default () => ({
   },
   geminiApiKey: process.env.GEMINI_API_KEY,
   redis: {
+    url: process.env.REDIS_URL || process.env.REDIS_PUBLIC_URL,
     host: process.env.REDISHOST || process.env.REDIS_HOST || 'localhost',
     port: parseInt(process.env.REDISPORT || process.env.REDIS_PORT, 10) || 6379,
     password: process.env.REDISPASSWORD || process.env.REDIS_PASSWORD,
