@@ -3,10 +3,12 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
 import { User } from '../../schemas/user.schema';
 import { Institute } from '../../schemas/institute.schema';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -14,6 +16,7 @@ export class AuthService {
     @InjectModel(User.name) private userModel: Model<User>,
     @InjectModel(Institute.name) private instituteModel: Model<Institute>,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
@@ -205,5 +208,64 @@ export class AuthService {
     await user.save();
 
     return { message: 'Password updated successfully' };
+  }
+
+  async forgotPassword(email: string, origin: string) {
+    const user = await this.userModel.findOne({ email });
+    if (!user) {
+      // Security: do not reveal if user exists
+      return { message: 'If that email exists, a reset link has been sent.' };
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+
+    // Token valid for 10 minutes
+    user.resetPasswordToken = hashedToken;
+    user.resetPasswordExpires = new Date(Date.now() + 10 * 60 * 1000);
+    await user.save();
+
+    const resetUrl = `${origin}/reset-password/${resetToken}`;
+    
+    // Send via dedicated Email Service
+    await this.emailService.sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+    return { message: 'If that email exists, a reset link has been sent.' };
+  }
+
+  async verifyResetToken(token: string) {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    
+    // In auth.service, to search by resetPasswordToken we must bypass the select: false
+    const user = await this.userModel.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select('+resetPasswordToken +resetPasswordExpires');
+
+    if (!user) {
+      throw new BadRequestException('Token is invalid or has expired');
+    }
+
+    return { message: 'Token is valid' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+
+    const user = await this.userModel.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() },
+    }).select('+resetPasswordToken +resetPasswordExpires');
+
+    if (!user) {
+      throw new BadRequestException('Token is invalid or has expired');
+    }
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return { message: 'Password reset successfully' };
   }
 }

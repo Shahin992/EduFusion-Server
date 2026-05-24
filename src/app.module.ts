@@ -23,6 +23,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { ImportModule } from './modules/import/import.module';
+import { EmailModule } from './modules/email/email.module';
 
 @Module({
   imports: [
@@ -79,6 +80,7 @@ import { ImportModule } from './modules/import/import.module';
       inject: [ConfigService],
     }),
     ImportModule,
+    EmailModule,
   ],
   controllers: [AppController],
   providers: [

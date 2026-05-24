@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { User, UserSchema } from '../../schemas/user.schema';
 import { Institute, InstituteSchema } from '../../schemas/institute.schema';
 import { JwtStrategy } from './jwt.strategy';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { JwtStrategy } from './jwt.strategy';
       }),
       inject: [ConfigService],
     }),
+    EmailModule,
   ],
   providers: [AuthService, JwtStrategy],
   controllers: [AuthController],

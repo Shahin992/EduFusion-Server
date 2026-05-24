@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UnauthorizedException, UsePipes, ValidationPipe, UseGuards, Get, Request, Patch } from '@nestjs/common';
+import { Controller, Post, Body, UnauthorizedException, UsePipes, ValidationPipe, UseGuards, Get, Request, Patch, Param, Headers } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -7,6 +7,8 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('auth')
 @ApiBearerAuth()
@@ -86,5 +88,28 @@ export class AuthController {
   @UsePipes(new ValidationPipe({ transform: true }))
   async changePassword(@Request() req, @Body() changePasswordDto: ChangePasswordDto) {
     return this.authService.changePassword(req.user.userId, changePasswordDto);
+  }
+
+  @Post('forgot-password')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Request password reset' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto, @Headers('origin') origin: string) {
+    const frontendOrigin = origin || process.env.FRONTEND_URL || 'http://localhost:5173';
+    return this.authService.forgotPassword(forgotPasswordDto.email, frontendOrigin);
+  }
+
+  @Get('reset-password/:token')
+  @ApiOperation({ summary: 'Verify reset password token' })
+  async verifyResetToken(@Param('token') token: string) {
+    return this.authService.verifyResetToken(token);
+  }
+
+  @Post('reset-password/:token')
+  @Throttle({ default: { limit: 3, ttl: 60000 } })
+  @ApiOperation({ summary: 'Reset password using token' })
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async resetPassword(@Param('token') token: string, @Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(token, resetPasswordDto.newPassword);
   }
 }
