@@ -132,12 +132,18 @@ export class StudentsService {
       registrationNumber = `${year}${instCode}${clsCode}${rollSuffix}`;
 
       // Check if this generated registration number already exists (unlikely but safe)
-      const existingReg = await this.studentModel.findOne({ instituteId: instId, registrationNumber });
-      if (existingReg) {
-        // Fallback to incremental if there's a collision
-        const lastReg = await this.studentModel.findOne({ instituteId: instId }).sort({ registrationNumber: -1 }).exec();
-        const lastNum = lastReg ? parseInt(lastReg.registrationNumber.slice(-2)) : 0;
-        registrationNumber = `${year}${instCode}${clsCode}${(lastNum + 1).toString().padStart(2, '0')}`;
+      let regExists = await this.studentModel.exists({ instituteId: instId, registrationNumber });
+      if (regExists) {
+        // Fallback to incremental until we find a unique one
+        let counter = parseInt(rollSuffix) + 1;
+        while (true) {
+          registrationNumber = `${year}${instCode}${clsCode}${counter.toString().padStart(2, '0')}`;
+          regExists = await this.studentModel.exists({ instituteId: instId, registrationNumber });
+          if (!regExists) {
+            break;
+          }
+          counter++;
+        }
       }
     } else {
       const existingReg = await this.studentModel.findOne({ instituteId: instId, registrationNumber });
