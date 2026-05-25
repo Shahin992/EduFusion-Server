@@ -26,4 +26,4 @@ RUN addgroup -S nodejs && adduser -S nestjs -G nodejs
 USER nestjs
 
 EXPOSE 3005
-CMD ["node", "dist/src/main"]
+CMD ["node", "dist/main"]
