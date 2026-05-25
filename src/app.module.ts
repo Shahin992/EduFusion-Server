@@ -24,6 +24,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
 import { ImportModule } from './modules/import/import.module';
 import { EmailModule } from './modules/email/email.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 import { Redis } from 'ioredis';
 
@@ -86,6 +87,7 @@ import { Redis } from 'ioredis';
     }),
     ImportModule,
     EmailModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [

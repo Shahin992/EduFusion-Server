@@ -9,6 +9,8 @@ import { AcademicSession, AcademicSessionSchema } from '../../schemas/academic-s
 import { Subject, SubjectSchema } from '../../schemas/subject.schema';
 import { Mark, MarkSchema } from '../../schemas/mark.schema';
 
+import { NotificationsModule } from '../notifications/notifications.module';
+
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -19,6 +21,7 @@ import { Mark, MarkSchema } from '../../schemas/mark.schema';
       { name: Subject.name, schema: SubjectSchema },
       { name: Mark.name, schema: MarkSchema },
     ]),
+    NotificationsModule,
   ],
   controllers: [ExamsController],
   providers: [ExamsService],

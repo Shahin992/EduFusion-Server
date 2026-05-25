@@ -11,6 +11,8 @@ import { CreateExamDto } from './dto/create-exam.dto';
 import { UpdateExamDto } from './dto/update-exam.dto';
 import { BulkCreateScheduleDto } from './dto/bulk-create-schedule.dto';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class ExamsService {
   constructor(
@@ -20,6 +22,7 @@ export class ExamsService {
     @InjectModel(AcademicSession.name) private sessionModel: Model<AcademicSession>,
     @InjectModel(Subject.name) private subjectModel: Model<Subject>,
     @InjectModel(Mark.name) private markModel: Model<Mark>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(createExamDto: CreateExamDto, instituteId: string): Promise<Exam> {
@@ -63,6 +66,13 @@ export class ExamsService {
 
       await this.scheduleModel.insertMany(schedules);
     }
+
+    // Send notification
+    await this.notificationsService.sendToInstitute(
+      instituteId,
+      'New Exam Scheduled',
+      `A new exam "${savedExam.name}" has been scheduled.`
+    );
 
     return savedExam;
   }
@@ -196,6 +206,15 @@ export class ExamsService {
       }));
 
       await this.scheduleModel.insertMany(schedules);
+    }
+
+    // Send notification if result is newly published
+    if (!existingExam.resultPublished && updateExamDto.resultPublished === true) {
+      await this.notificationsService.sendToInstitute(
+        instituteId,
+        'Exam Results Published',
+        `The results for the exam "${updatedExam.name}" have been published.`
+      );
     }
 
     return updatedExam;
