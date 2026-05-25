@@ -68,13 +68,13 @@ export class ExamsService {
     }
 
     // Send notification
-    await this.notificationsService.sendToInstitute(
+    const notificationSent = await this.notificationsService.sendToInstitute(
       instituteId,
       'New Exam Scheduled',
       `A new exam "${savedExam.name}" has been scheduled.`
     );
 
-    return savedExam;
+    return { ...savedExam.toObject(), notificationSent } as any;
   }
 
   async findAll(instituteId: string, classId?: string, search?: string, page?: number, limit?: number, resultPublished?: boolean) {
@@ -209,14 +209,18 @@ export class ExamsService {
     }
 
     // Send notification if result is newly published
+    let notificationSent = undefined;
     if (!existingExam.resultPublished && updateExamDto.resultPublished === true) {
-      await this.notificationsService.sendToInstitute(
+      notificationSent = await this.notificationsService.sendToInstitute(
         instituteId,
         'Exam Results Published',
         `The results for the exam "${updatedExam.name}" have been published.`
       );
     }
 
+    if (notificationSent !== undefined) {
+      return { ...updatedExam.toObject(), notificationSent } as any;
+    }
     return updatedExam;
   }
 

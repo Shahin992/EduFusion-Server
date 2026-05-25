@@ -6,13 +6,13 @@ export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
   private readonly onesignalUrl = 'https://onesignal.com/api/v1/notifications';
 
-  async sendToInstitute(instituteId: string, title: string, message: string) {
+  async sendToInstitute(instituteId: string, title: string, message: string): Promise<boolean> {
     const appId = process.env.ONESIGNAL_APP_ID;
     const apiKey = process.env.ONESIGNAL_REST_API_KEY;
 
     if (!appId || !apiKey) {
       this.logger.warn('OneSignal credentials not found in environment variables. Skipping notification.');
-      return;
+      return false;
     }
 
     try {
@@ -34,8 +34,10 @@ export class NotificationsService {
         }
       );
       this.logger.log(`Notification sent to institute ${instituteId}: ${title}`);
+      return true;
     } catch (error) {
       this.logger.error('Failed to send OneSignal notification', error?.response?.data || error.message);
+      return false;
     }
   }
 }

@@ -42,22 +42,63 @@ export class FeesService {
   }
 
   async getAllFees(instituteId: string, query: any) {
-    const { page = 1, limit = 10, search } = query;
+    const { page = 1, limit = 10, search, classId } = query;
     const filter: any = { instituteId: new Types.ObjectId(instituteId) };
 
-    if (search) {
-      // In a real app, we'd join with students to search by name
-      // For now, simple ID or receipt search
-      filter.$or = [
-        { receiptNumber: new RegExp(search, 'i') },
-      ];
+    let studentIds = [];
+    let hasStudentFilter = false;
+
+    if (search || classId) {
+      const studentFilter: any = { instituteId: new Types.ObjectId(instituteId) };
+      
+      if (search) {
+        studentFilter.$or = [
+          { name: new RegExp(search, 'i') },
+          { rollNumber: new RegExp(search, 'i') }
+        ];
+      }
+      
+      if (classId) {
+        studentFilter.classId = new Types.ObjectId(classId);
+      }
+      
+      const students = await this.studentModel.find(studentFilter).select('_id');
+      studentIds = students.map(s => s._id);
+      hasStudentFilter = true;
+    }
+
+    if (hasStudentFilter) {
+      if (studentIds.length === 0 && !search) {
+        return { fees: [], total: 0, pages: 0 };
+      }
+      
+      filter.$or = [];
+      if (studentIds.length > 0) {
+        filter.$or.push({ studentId: { $in: studentIds } });
+      }
+      if (search) {
+        filter.$or.push({ receiptNumber: new RegExp(search, 'i') });
+      }
+      
+      if (filter.$or.length === 0) {
+          delete filter.$or;
+          // force empty result if search didn't match any student and we don't have other conditions
+          filter._id = null;
+      }
     }
 
     const fees = await this.feeModel.find(filter)
-      .populate('studentId', 'name rollNumber')
+      .populate({
+        path: 'studentId',
+        select: 'name rollNumber classId',
+        populate: {
+          path: 'classId',
+          select: 'name'
+        }
+      })
       .sort({ paymentDate: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(Number(limit));
 
     const total = await this.feeModel.countDocuments(filter);
 
