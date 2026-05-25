@@ -98,7 +98,7 @@ export class AuthController {
     const origin = req.headers['origin'] || req.headers['referer'];
     // Extract base URL from referer if origin is missing
     const originBase = origin ? new URL(origin).origin : null;
-    const frontendOrigin = originBase || process.env.FRONTEND_URL || 'http://localhost:5173';
+    const frontendOrigin = process.env.FRONTEND_URL || originBase || 'http://localhost:5173';
     return this.authService.forgotPassword(forgotPasswordDto.email, frontendOrigin);
   }
 
