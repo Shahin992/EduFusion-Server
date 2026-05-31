@@ -23,7 +23,7 @@ jobs:
         script: |
           # Navigate to the project directory on your EC2 instance
           # Adjust the path to match where your app is on the server
-          cd /home/ubuntu/Production-Edufusion/EduFusion-Server
+          cd /home/ubuntu/EduFusion-Server
           
           # Pull the latest changes from the main branch
           git pull origin main
