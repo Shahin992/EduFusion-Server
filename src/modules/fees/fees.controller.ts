@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Query, UseGuards, Request, Param } from '@
 import { FeesService } from './fees.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { CreateFeeDto } from './dto/create-fee.dto';
 
 @ApiTags('Fees')
 @ApiBearerAuth()
@@ -12,7 +13,7 @@ export class FeesController {
 
   @Post()
   @ApiOperation({ summary: 'Record a new student fee payment' })
-  async recordPayment(@Body() data: any, @Request() req) {
+  async recordPayment(@Body() data: CreateFeeDto, @Request() req) {
     return this.feesService.recordPayment(data, req.user.instituteId);
   }
 
