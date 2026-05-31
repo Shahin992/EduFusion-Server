@@ -1,0 +1,33 @@
+name: Deploy to Amazon EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Deploy to EC2 via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USERNAME }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          # Navigate to the project directory on your EC2 instance
+          # Adjust the path to match where your app is on the server
+          cd /home/ubuntu/Production-Edufusion/EduFusion-Server
+          
+          # Pull the latest changes from the main branch
+          git pull origin main
+          
+          # Rebuild and restart the backend Docker containers
+          docker-compose down
+          docker-compose up -d --build
