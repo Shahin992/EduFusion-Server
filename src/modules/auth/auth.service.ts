@@ -92,8 +92,7 @@ export class AuthService {
             isOnboarded: institute.isOnboarded
           } : null
         },
-        isOnboarded: institute?.isOnboarded || false,
-        detectionKey: 'shahin logged'
+        isOnboarded: institute?.isOnboarded || false
       };
     } catch (error) {
       console.error('[AuthService] Login failed at JWT/Object stage:', error);
