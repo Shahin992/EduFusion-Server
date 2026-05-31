@@ -32,5 +32,5 @@ jobs:
           git pull origin main
           
           # Rebuild and restart the backend Docker containers
-          docker-compose down
-          docker-compose up -d --build
+          docker compose down
+          docker compose up -d --build
