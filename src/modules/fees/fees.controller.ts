@@ -33,7 +33,20 @@ export class FeesController {
 
   @Get('dues/:classId')
   @ApiOperation({ summary: 'Get students with dues for a class' })
-  async getDues(@Param('classId') classId: string, @Request() req) {
+  async getDues(
+    @Param('classId') classId: string, 
+    @Query() query: any, 
+    @Request() req
+  ) {
+    if (query.month) {
+      return this.feesService.getBulkDues(classId, query.month, query, req.user.instituteId);
+    }
     return this.feesService.getDues(classId, req.user.instituteId);
+  }
+
+  @Post('bulk')
+  @ApiOperation({ summary: 'Record bulk fee payments' })
+  async recordBulkPayments(@Body() data: any, @Request() req) {
+    return this.feesService.recordBulkPayments(data, req.user.instituteId);
   }
 }

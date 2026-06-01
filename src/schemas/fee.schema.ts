@@ -12,7 +12,13 @@ export class Fee extends Document {
   studentId: Student;
 
   @Prop({ required: true })
-  amount: number;
+  totalAmount: number; // The expected total fee
+
+  @Prop({ required: true })
+  amount: number; // Paid amount
+
+  @Prop({ required: true, default: 0 })
+  dueAmount: number; // totalAmount - amount
 
   @Prop({ 
     required: true, 

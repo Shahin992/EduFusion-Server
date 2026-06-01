@@ -57,8 +57,8 @@ export class Student extends Document {
   @Prop()
   instituteName: string;
 
-  @Prop()
-  monthlyFees: string;
+  @Prop({ type: Number })
+  monthlyFees: number; // Custom monthly fee overriding class fee
 
   @Prop({ type: Types.ObjectId, ref: 'AcademicSession' })
   academicSessionId: Types.ObjectId;
