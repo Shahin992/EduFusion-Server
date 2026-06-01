@@ -10,6 +10,7 @@ import { Mark } from '../../schemas/mark.schema';
 import { Institute } from '../../schemas/institute.schema';
 import { Lead } from '../../schemas/lead.schema';
 import { Salary } from '../../schemas/salary.schema';
+import { Expense } from '../../schemas/expense.schema';
 
 @Injectable()
 export class AnalyticsService {
@@ -23,6 +24,7 @@ export class AnalyticsService {
     @InjectModel(Institute.name) private instituteModel: Model<Institute>,
     @InjectModel(Lead.name) private leadModel: Model<Lead>,
     @InjectModel(Salary.name) private salaryModel: Model<Salary>,
+    @InjectModel(Expense.name) private expenseModel: Model<Expense>,
   ) {}
 
   async getDashboardData(user: any, timeframe?: string) {
@@ -60,12 +62,18 @@ export class AnalyticsService {
     }
 
     // KPIs
-    const [totalStudents, totalTeachers, totalExams, fees] = await Promise.all([
+    const [totalStudents, totalTeachers, totalExams, fees, generalExpenses] = await Promise.all([
       this.studentModel.countDocuments({ instituteId: instId, status: 'Active', ...dateFilter }),
       this.teacherModel.countDocuments({ instituteId: instId, status: 'Active', ...dateFilter }),
       this.examModel.countDocuments({ instituteId: instId, ...dateFilter }),
       this.feeModel.aggregate([
         { $match: { instituteId: instId, status: 'Paid', ...monthMatch } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      this.expenseModel.aggregate([
+        { $match: { instituteId: instId, ...dateFilter } }, // or monthMatch? Assuming dateFilter matches the timeframe. Let's use dateFilter for consistency with other KPIs. Wait, Fee is using monthMatch.
+        // Actually, if we use monthMatch for fee, we should use dateFilter or monthMatch for expenses.
+        // The dashboard says "Fee Collection" without specifying month in title, but it passes monthMatch.
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ])
     ]);
@@ -84,12 +92,13 @@ export class AnalyticsService {
       { $match: { instituteId: instId, ...monthMatch } },
       { $group: { 
           _id: '$status', 
-          total: { $sum: '$amount' } 
+          paidTotal: { $sum: '$amountPaid' },
+          dueTotal: { $sum: '$dueAmount' }
         } 
       }
     ]);
-    const paidSalaries = salaries.find(s => s._id === 'Paid')?.total || 0;
-    const unpaidSalaries = salaries.find(s => s._id === 'Pending' || s._id === 'Unpaid')?.total || 0;
+    const paidSalaries = salaries.reduce((acc, curr) => acc + (curr.paidTotal || 0), 0);
+    const unpaidSalaries = salaries.reduce((acc, curr) => acc + (curr.dueTotal || 0), 0);
 
     // Recent Lists
     const [recentStudents, rawRecentResults, rawUpcomingExams] = await Promise.all([
@@ -98,12 +107,15 @@ export class AnalyticsService {
       this.examModel.find({ instituteId: instId, resultPublished: false, startDate: { $gte: new Date() } }).sort({ startDate: 1 }).limit(5).populate('classId', 'name')
     ]);
 
+    const totalExpenses = (generalExpenses[0]?.total || 0) + paidSalaries;
+
     return {
       kpis: {
         totalStudents,
         totalTeachers,
         totalExams,
         feeCollection: fees[0]?.total || 0,
+        totalExpenses,
       },
       charts: {
         feeStatus: {

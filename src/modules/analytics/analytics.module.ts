@@ -11,6 +11,7 @@ import { Mark, MarkSchema } from '../../schemas/mark.schema';
 import { Institute, InstituteSchema } from '../../schemas/institute.schema';
 import { Lead, LeadSchema } from '../../schemas/lead.schema';
 import { Salary, SalarySchema } from '../../schemas/salary.schema';
+import { Expense, ExpenseSchema } from '../../schemas/expense.schema';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Salary, SalarySchema } from '../../schemas/salary.schema';
       { name: Institute.name, schema: InstituteSchema },
       { name: Lead.name, schema: LeadSchema },
       { name: Salary.name, schema: SalarySchema },
+      { name: Expense.name, schema: ExpenseSchema },
     ]),
   ],
   controllers: [AnalyticsController],

@@ -10,6 +10,12 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 export class SalariesController {
   constructor(private readonly salariesService: SalariesService) {}
 
+  @Post('bulk')
+  @ApiOperation({ summary: 'Disburse bulk salaries for multiple teachers' })
+  async disburseBulkSalaries(@Body() data: { teacherIds: string[], month: string }, @Request() req) {
+    return this.salariesService.disburseBulkSalaries(data, req.user.instituteId);
+  }
+
   @Post()
   @ApiOperation({ summary: 'Disburse a teacher salary' })
   async disburseSalary(@Body() data: any, @Request() req) {

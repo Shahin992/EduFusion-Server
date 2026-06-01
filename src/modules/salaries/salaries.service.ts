@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Salary } from '../../schemas/salary.schema';
 import { Teacher } from '../../schemas/teacher.schema';
 
@@ -12,21 +12,114 @@ export class SalariesService {
   ) {}
 
   async disburseSalary(data: any, instituteId: string) {
-    const teacher = await this.teacherModel.findOne({ _id: data.teacherId, instituteId });
+    const teacher = await this.teacherModel.findOne({ 
+      _id: new Types.ObjectId(data.teacherId), 
+      instituteId: new Types.ObjectId(instituteId) 
+    });
+    
     if (!teacher) throw new NotFoundException('Teacher not found');
+
+    const baseSalary = Number(teacher.monthlySalary) || 0;
+    const paymentAmount = Number(data.amountPaid) || 0;
+
+    let salary = await this.salaryModel.findOne({
+      teacherId: new Types.ObjectId(data.teacherId),
+      month: data.month,
+      instituteId: new Types.ObjectId(instituteId)
+    });
+
+    if (salary) {
+      if (salary.status === 'Paid') {
+        throw new Error('Salary already fully paid for this month');
+      }
+      
+      salary.amountPaid += paymentAmount;
+      salary.dueAmount = Math.max(0, baseSalary - salary.amountPaid);
+      salary.status = salary.dueAmount <= 0 ? 'Paid' : 'Partial';
+      
+      return salary.save();
+    }
+
+    const dueAmount = Math.max(0, baseSalary - paymentAmount);
+    const status = dueAmount <= 0 ? 'Paid' : 'Partial';
 
     const newSalary = new this.salaryModel({
       ...data,
-      instituteId,
-      baseSalary: Number(teacher.monthlySalary) || 0,
+      teacherId: new Types.ObjectId(data.teacherId),
+      instituteId: new Types.ObjectId(instituteId),
+      baseSalary: baseSalary,
+      amountPaid: paymentAmount,
+      dueAmount: dueAmount,
+      status: status
     });
 
     return newSalary.save();
   }
 
+  async disburseBulkSalaries(data: { teacherIds: string[], month: string }, instituteId: string) {
+    const results = [];
+    const errors = [];
+    
+    for (const teacherId of data.teacherIds) {
+      try {
+        const teacher = await this.teacherModel.findOne({ 
+          _id: new Types.ObjectId(teacherId), 
+          instituteId: new Types.ObjectId(instituteId) 
+        });
+        
+        if (!teacher) {
+          errors.push({ teacherId, error: 'Teacher not found' });
+          continue;
+        }
+
+        const baseSalary = Number(teacher.monthlySalary) || 0;
+        let salary = await this.salaryModel.findOne({
+          teacherId: new Types.ObjectId(teacherId),
+          month: data.month,
+          instituteId: new Types.ObjectId(instituteId)
+        });
+
+        if (salary) {
+          if (salary.status === 'Paid') continue;
+          
+          salary.amountPaid += salary.dueAmount;
+          salary.dueAmount = 0;
+          salary.status = 'Paid';
+          await salary.save();
+          results.push(salary);
+        } else {
+          const newSalary = new this.salaryModel({
+            teacherId: new Types.ObjectId(teacherId),
+            instituteId: new Types.ObjectId(instituteId),
+            month: data.month,
+            baseSalary: baseSalary,
+            amountPaid: baseSalary,
+            dueAmount: 0,
+            status: 'Paid',
+            paymentDate: new Date()
+          });
+          await newSalary.save();
+          results.push(newSalary);
+        }
+      } catch (err) {
+        errors.push({ teacherId, error: err.message });
+      }
+    }
+    
+    return {
+      message: `Successfully processed ${results.length} salary payments.`,
+      successCount: results.length,
+      errors
+    };
+  }
+
   async getSalaryHistory(instituteId: string, query: any) {
-    const { page = 1, limit = 10 } = query;
-    const filter = { instituteId };
+    const { page = 1, limit = 10, month } = query;
+    const filter: any = { instituteId: new Types.ObjectId(instituteId) };
+    
+    if (month) {
+      filter.month = month;
+    }
 
     const salaries = await this.salaryModel.find(filter)
       .populate('teacherId', 'name designation')

@@ -25,6 +25,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { ImportModule } from './modules/import/import.module';
 import { EmailModule } from './modules/email/email.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ExpensesModule } from './modules/expenses/expenses.module';
 
 import { Redis } from 'ioredis';
 
@@ -88,6 +89,7 @@ import { Redis } from 'ioredis';
     ImportModule,
     EmailModule,
     NotificationsModule,
+    ExpensesModule,
   ],
   controllers: [AppController],
   providers: [

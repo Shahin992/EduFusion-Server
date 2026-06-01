@@ -17,6 +17,9 @@ export class Salary extends Document {
   @Prop({ required: true })
   baseSalary: number;
 
+  @Prop({ required: true, default: 0 })
+  dueAmount: number;
+
   @Prop({ required: true })
   month: string; // e.g., "January 2026"
 
@@ -25,7 +28,7 @@ export class Salary extends Document {
 
   @Prop({ 
     required: true, 
-    enum: ['Paid', 'Pending'],
+    enum: ['Paid', 'Partial', 'Pending'],
     default: 'Paid'
   })
   status: string;
