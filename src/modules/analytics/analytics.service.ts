@@ -95,7 +95,7 @@ export class AnalyticsService {
     const [recentStudents, rawRecentResults, rawUpcomingExams] = await Promise.all([
       this.studentModel.find({ instituteId: instId, ...dateFilter }).sort({ createdAt: -1 }).limit(5).populate('classId', 'name'),
       this.examModel.find({ instituteId: instId, resultPublished: true, ...dateFilter }).sort({ updatedAt: -1 }).limit(5).populate('classId', 'name'),
-      this.examModel.find({ instituteId: instId, resultPublished: false, date: { $gte: new Date() } }).sort({ date: 1 }).limit(5).populate('classId', 'name')
+      this.examModel.find({ instituteId: instId, resultPublished: false, startDate: { $gte: new Date() } }).sort({ startDate: 1 }).limit(5).populate('classId', 'name')
     ]);
 
     return {
@@ -129,7 +129,7 @@ export class AnalyticsService {
         upcomingExams: rawUpcomingExams.map((e: any) => ({
           examName: e.name,
           className: (e.classId as any)?.name || 'N/A',
-          date: e.date
+          date: e.startDate
         }))
       }
     };
@@ -167,7 +167,7 @@ export class AnalyticsService {
     const [currentMonthFee, latestPayment, exams, marks] = await Promise.all([
       this.feeModel.findOne({ studentId, feeType: 'Monthly', status: 'Paid', ...monthMatch }),
       this.feeModel.findOne({ studentId, status: 'Paid', ...monthMatch }).sort({ paymentDate: -1 }),
-      this.examModel.find({ classId: student.classId, instituteId, date: { $gte: new Date() } }).limit(5),
+      this.examModel.find({ classId: student.classId, instituteId, startDate: { $gte: new Date() } }).limit(5),
       this.markModel.find({ studentId, instituteId, ...dateFilter }).sort({ createdAt: -1 }).limit(10).populate('subjectId examId')
     ]);
 
