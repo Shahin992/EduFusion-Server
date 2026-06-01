@@ -39,7 +39,7 @@ export class AiLabService {
     let generatedData: { mcqs: any[], creatives: any[] } = { mcqs: [], creatives: [] };
 
     if (!this.genAI) {
-      throw new InternalServerErrorException('AI Service is not configured. Please check your API key.');
+      throw new InternalServerErrorException('Service is not configured. Please contact support.');
     }
 
     const prompt = `
@@ -53,6 +53,10 @@ export class AiLabService {
       3. For Multiple Choice Questions (MCQ), provide 4 distinct, plausible options and identify the correct one.
       4. For Creative (Srijonshil) Questions, create a realistic scenario/stem followed by 4 parts (A, B, C, D) with increasing cognitive depth (Knowledge, Understanding, Application, Higher Order).
       5. Use professional academic tone in ${language}.
+      6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
+         - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
+         - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
+         - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
       
       Requirements:
       ${questionType !== 'CQ' ? `1. Generate ${mcqCount} Multiple Choice Questions (MCQ).` : ''}
@@ -87,7 +91,10 @@ export class AiLabService {
       };
     } catch (err) {
       console.error('Gemini Fallback Failed:', err);
-      throw new InternalServerErrorException('AI generation failed after multiple attempts. Please try again.');
+      if (err instanceof InternalServerErrorException) {
+        throw err;
+      }
+      throw new InternalServerErrorException('Failed to generate questions after multiple attempts. Please try again.');
     }
 
     // Combine questions for draft
@@ -154,7 +161,7 @@ export class AiLabService {
     const cqCount = questionsToReplace.filter(q => q.type === 'Creative').length;
 
     if (!this.genAI) {
-      throw new InternalServerErrorException('AI Service is not configured. Please check your API key.');
+      throw new InternalServerErrorException('Service is not configured. Please contact support.');
     }
 
     const prompt = `
@@ -167,6 +174,10 @@ export class AiLabService {
       3. For Multiple Choice Questions (MCQ), provide 4 distinct, plausible options.
       4. For Creative (Srijonshil) Questions, ensure the scenario is realistic.
       5. Use professional academic tone in ${draft.language}.
+      6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
+         - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
+         - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
+         - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
 
       KEEP these questions (DO NOT REPEAT THEM):
       ${JSON.stringify(questionsToKeep.map(q => q.content.text || q.content.scenario))}
@@ -212,6 +223,9 @@ export class AiLabService {
       return draft;
     } catch (err) {
       console.error('Gemini Refinement Fallback Failed:', err);
+      if (err instanceof InternalServerErrorException) {
+        throw err;
+      }
       throw new InternalServerErrorException('Question regeneration failed. Please try again.');
     }
   }
@@ -267,7 +281,7 @@ export class AiLabService {
         } catch (parseErr) {
           console.warn(`JSON Parse failed for ${modelName}:`, parseErr.message);
           console.debug('Problematic JSON string:', jsonStr);
-          throw new Error('Invalid JSON response from AI');
+          throw new Error('Invalid response format');
         }
       } catch (err) {
         console.warn(`Model ${modelName} failed:`, err.message);
@@ -279,14 +293,14 @@ export class AiLabService {
 
     if (lastError) {
       if (lastError.status === 429 || lastError.message?.includes('429')) {
-        throw new InternalServerErrorException('AI Service is currently rate-limited. Please wait a moment and try again.');
+        throw new InternalServerErrorException('The service is currently busy. Please wait a minute and try again.');
       }
       if (lastError.status === 404 || lastError.message?.includes('404')) {
-        throw new InternalServerErrorException('AI Model not found or unavailable. Please contact support.');
+        throw new InternalServerErrorException('The service is currently unavailable. Please contact support.');
       }
     }
     
-    throw new InternalServerErrorException('AI generation failed after multiple attempts with all available models.');
+    throw new InternalServerErrorException('Failed to generate questions after multiple attempts.');
   }
 
   async saveFinalizedSet(draft: any, userId: string, instituteId: string) {
