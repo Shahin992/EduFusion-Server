@@ -58,6 +58,7 @@ export class InstitutesService {
             subjects: Array.isArray(clsData.subjects)
               ? clsData.subjects.filter((subject) => subject?.trim())
               : [],
+            monthlyFee: clsData.monthlyFee || 0,
           }))
           .filter((clsData) => clsData.name)
       : [];
@@ -87,6 +88,7 @@ export class InstitutesService {
           name: clsData.name,
           instituteId: instId,
           classCode: classIdx++,
+          monthlyFee: clsData.monthlyFee,
           subjects: []
         });
         const savedClass = await academicClass.save();
