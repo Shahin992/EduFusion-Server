@@ -6,6 +6,12 @@
     "builder": "swc",
     "typeCheck": false,
     "deleteOutDir": true,
-    "plugins": ["@nestjs/swagger"]
+    "plugins": ["@nestjs/swagger"],
+    "assets": [
+      {
+        "include": "scripts/**/*.js",
+        "outDir": "dist"
+      }
+    ]
   }
 }
