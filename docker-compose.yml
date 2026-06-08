@@ -10,6 +10,8 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    command: >
+      sh -c "node dist/scripts/run-migrations.js && node dist/main"
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
