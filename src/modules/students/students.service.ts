@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Model, Types } from 'mongoose';
 import { Student } from '../../schemas/student.schema';
 import { User } from '../../schemas/user.schema';
@@ -18,6 +20,7 @@ export class StudentsService {
     @InjectModel(AcademicClass.name) private classModel: Model<AcademicClass>,
     @InjectModel(AcademicSession.name) private sessionModel: Model<AcademicSession>,
     @InjectModel(Institute.name) private instituteModel: Model<Institute>,
+    @InjectQueue('fees') private feesQueue: Queue,
   ) {}
 
   private async assertClassBelongsToInstitute(classId: string, instituteId: string) {
@@ -213,6 +216,16 @@ export class StudentsService {
           instituteId: instId,
           studentId: savedStudent._id,
           isActive: true,
+        });
+
+        // Trigger BullMQ job to instantly generate Admission & current Monthly fees
+        await this.feesQueue.add('generate-initial-fees', { 
+          studentId: savedStudent._id.toString(),
+          initialMonthFee: createStudentDto.initialMonthFee,
+          admissionFeeOverride: createStudentDto.admissionFee
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 }
         });
 
         return savedStudent;

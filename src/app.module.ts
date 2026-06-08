@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import configuration from './config/configuration';
@@ -90,6 +91,7 @@ import { Redis } from 'ioredis';
     EmailModule,
     NotificationsModule,
     ExpensesModule,
+    ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [

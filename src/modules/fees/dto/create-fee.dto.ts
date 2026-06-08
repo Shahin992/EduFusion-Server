@@ -1,6 +1,10 @@
 import { IsString, IsNotEmpty, IsNumber, IsOptional, IsEnum, IsDateString, IsMongoId } from 'class-validator';
 
 export class CreateFeeDto {
+  @IsOptional()
+  @IsString()
+  _id?: string;
+
   @IsMongoId()
   @IsNotEmpty()
   studentId: string;
@@ -8,6 +12,14 @@ export class CreateFeeDto {
   @IsNumber()
   @IsNotEmpty()
   amount: number;
+
+  @IsNumber()
+  @IsOptional()
+  totalAmount?: number;
+
+  @IsNumber()
+  @IsOptional()
+  dueAmount?: number;
 
   @IsString()
   @IsNotEmpty()

@@ -3,6 +3,7 @@ import { FeesService } from './fees.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { CreateFeeDto } from './dto/create-fee.dto';
+import { GenerateBulkFeesDto } from './dto/generate-bulk-fees.dto';
 
 @ApiTags('Fees')
 @ApiBearerAuth()
@@ -38,15 +39,30 @@ export class FeesController {
     @Query() query: any, 
     @Request() req
   ) {
-    if (query.month) {
-      return this.feesService.getBulkDues(classId, query.month, query, req.user.instituteId);
-    }
-    return this.feesService.getDues(classId, req.user.instituteId);
+    return this.feesService.getBulkDues(classId, query, req.user.instituteId);
   }
 
   @Post('bulk')
   @ApiOperation({ summary: 'Record bulk fee payments' })
   async recordBulkPayments(@Body() data: any, @Request() req) {
     return this.feesService.recordBulkPayments(data, req.user.instituteId);
+  }
+
+  @Get('student/:studentId/dues')
+  @ApiOperation({ summary: 'Get all pending dues for a student' })
+  async getStudentDues(@Param('studentId') studentId: string, @Request() req) {
+    return this.feesService.getStudentDues(studentId, req.user.instituteId);
+  }
+
+  @Post('student/bulk-pay')
+  @ApiOperation({ summary: 'Pay multiple dues for a student' })
+  async payStudentDues(@Body() data: any, @Request() req) {
+    return this.feesService.payStudentDues(data, req.user.instituteId);
+  }
+
+  @Post('generate-bulk')
+  @ApiOperation({ summary: 'Generate bulk pending fees via BullMQ' })
+  async generateBulkFees(@Body() data: GenerateBulkFeesDto, @Request() req) {
+    return this.feesService.scheduleBulkFeeGeneration(data, req.user.instituteId);
   }
 }

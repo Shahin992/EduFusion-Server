@@ -1,17 +1,43 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Fee } from '../../schemas/fee.schema';
 import { Student } from '../../schemas/student.schema';
 import { AcademicClass } from '../../schemas/academic-class.schema';
+import { GenerateBulkFeesDto } from './dto/generate-bulk-fees.dto';
 
 @Injectable()
 export class FeesService {
+  private readonly logger = new Logger(FeesService.name);
+
   constructor(
+    @InjectQueue('fees') private feesQueue: Queue,
     @InjectModel(Fee.name) private feeModel: Model<Fee>,
     @InjectModel(Student.name) private studentModel: Model<Student>,
     @InjectModel(AcademicClass.name) private academicClassModel: Model<AcademicClass>,
   ) {}
+
+  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  async generateMonthlyFeesJob() {
+    this.logger.log('Cron Job Triggered: Scheduling generate-monthly-fees via BullMQ...');
+    const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+    
+    try {
+      await this.feesQueue.add('generate-monthly-fees', { currentMonth }, {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+      });
+      this.logger.log(`Job added to queue for month: ${currentMonth}`);
+    } catch (error) {
+      this.logger.error('Failed to add job to queue', error);
+    }
+  }
 
   async recordPayment(data: any, instituteId: string) {
     const student = await this.studentModel.findOne({ 
@@ -74,8 +100,12 @@ export class FeesService {
   }
 
   async getAllFees(instituteId: string, query: any) {
-    const { page = 1, limit = 10, search, classId } = query;
+    const { page = 1, limit = 10, search, classId, status } = query;
     const filter: any = { instituteId: new Types.ObjectId(instituteId) };
+
+    if (status) {
+      filter.status = status;
+    }
 
     let studentIds = [];
     let hasStudentFilter = false;
@@ -141,8 +171,8 @@ export class FeesService {
     };
   }
 
-  async getBulkDues(classId: string, month: string, query: any, instituteId: string) {
-    const { page = 1, limit = 25, search } = query;
+  async getBulkDues(classId: string, query: any, instituteId: string) {
+    const { page = 1, limit = 25, search, feeType = 'Monthly', month, feeName } = query;
     const filter: any = { 
       classId: new Types.ObjectId(classId), 
       instituteId: new Types.ObjectId(instituteId), 
@@ -161,11 +191,14 @@ export class FeesService {
     const cls = await this.academicClassModel.findById(classId);
     const baseFee = cls ? cls.monthlyFee : 0;
 
-    const fees = await this.feeModel.find({
+    const feeQuery: any = {
       instituteId: new Types.ObjectId(instituteId),
-      feeType: 'Monthly',
-      month,
-    });
+      feeType,
+    };
+    if (feeType === 'Monthly' && month) feeQuery.month = month;
+    if (feeType === 'Other' && feeName) feeQuery.note = new RegExp(feeName, 'i');
+
+    const fees = await this.feeModel.find(feeQuery);
 
     const feeMap = new Map();
     for (const fee of fees) {
@@ -174,7 +207,7 @@ export class FeesService {
 
     const dues = [];
     for (const student of students) {
-      const expectedFee = (student.monthlyFees !== undefined && student.monthlyFees !== null) ? student.monthlyFees : baseFee;
+      let expectedFee = feeType === 'Monthly' ? ((student.monthlyFees !== undefined && student.monthlyFees !== null) ? student.monthlyFees : baseFee) : 0;
       const existingFee = feeMap.get(student._id.toString());
       
       let dueAmount = expectedFee;
@@ -183,6 +216,7 @@ export class FeesService {
       let feeId = null;
 
       if (existingFee) {
+        expectedFee = existingFee.totalAmount;
         dueAmount = existingFee.dueAmount;
         paidAmount = existingFee.amount;
         status = existingFee.status;
@@ -215,21 +249,21 @@ export class FeesService {
     };
   }
 
-  async recordBulkPayments(data: { classId: string, month: string, payments: any[] }, instituteId: string) {
-    const { month, payments } = data;
+  async recordBulkPayments(data: { classId: string, feeType?: string, month?: string, feeName?: string, payments: any[] }, instituteId: string) {
+    const { feeType = 'Monthly', month, feeName, payments } = data;
     const results = [];
     
     for (const p of payments) {
       const paymentData = {
         _id: p.feeId,
         studentId: p.studentId,
-        feeType: 'Monthly',
-        month,
+        feeType,
+        month: feeType === 'Monthly' ? month : undefined,
         amount: p.amountPaid,
         totalAmount: p.totalAmount,
         dueAmount: p.dueAmount,
         paymentDate: new Date(),
-        note: 'Bulk Collection'
+        note: feeType === 'Other' ? (feeName || 'Bulk Collection') : 'Bulk Collection'
       };
       
       const result = await this.recordPayment(paymentData, instituteId);
@@ -241,6 +275,49 @@ export class FeesService {
 
   async getDues(classId: string, instituteId: string) {
     const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
-    return this.getBulkDues(classId, currentMonth, {}, instituteId);
+    return this.getBulkDues(classId, { month: currentMonth, feeType: 'Monthly' }, instituteId);
+  }
+
+  async getStudentDues(studentId: string, instituteId: string) {
+    return this.feeModel.find({
+      studentId: new Types.ObjectId(studentId),
+      instituteId: new Types.ObjectId(instituteId),
+      status: { $in: ['Pending', 'Partial'] }
+    }).sort({ paymentDate: -1 }).exec();
+  }
+
+  async payStudentDues(data: { payments: { feeId: string, amountPaid: number }[] }, instituteId: string) {
+    const results = [];
+    for (const p of data.payments) {
+      const existingFee = await this.feeModel.findOne({ _id: new Types.ObjectId(p.feeId), instituteId: new Types.ObjectId(instituteId) });
+      if (existingFee) {
+        const updateData = {
+          _id: existingFee._id,
+          studentId: existingFee.studentId,
+          amount: p.amountPaid,
+          paymentDate: new Date()
+        };
+        const res = await this.recordPayment(updateData, instituteId);
+        results.push(res);
+      }
+    }
+    return results;
+  }
+
+  async scheduleBulkFeeGeneration(data: GenerateBulkFeesDto, instituteId: string) {
+    this.logger.log(`Scheduling custom bulk fee generation via BullMQ for institute: ${instituteId}`);
+    try {
+      await this.feesQueue.add('generate-custom-bulk-fees', {
+        ...data,
+        instituteId,
+      }, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+      });
+      return { success: true, message: 'Fee generation started in the background.' };
+    } catch (error) {
+      this.logger.error('Failed to schedule custom bulk fee generation', error);
+      throw new BadRequestException('Could not start bulk generation');
+    }
   }
 }

@@ -58,9 +58,16 @@ export class CreateStudentDto {
   address?: string;
 
   @ApiProperty({ required: false })
-  @IsString()
   @IsOptional()
-  monthlyFees?: string;
+  monthlyFees?: any;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  initialMonthFee?: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  admissionFee?: any;
 
   @ApiProperty()
   @IsMongoId()

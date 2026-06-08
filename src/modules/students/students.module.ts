@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BullModule } from '@nestjs/bullmq';
 import { StudentsService } from './students.service';
 import { StudentsController } from './students.controller';
 import { Student, StudentSchema } from '../../schemas/student.schema';
@@ -17,6 +18,9 @@ import { User, UserSchema } from '../../schemas/user.schema';
       { name: Institute.name, schema: InstituteSchema },
       { name: User.name, schema: UserSchema },
     ]),
+    BullModule.registerQueue({
+      name: 'fees',
+    }),
   ],
   controllers: [StudentsController],
   providers: [StudentsService],
