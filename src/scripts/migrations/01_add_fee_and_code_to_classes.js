@@ -43,6 +43,7 @@ exports.run = async function(mongoose, db) {
         needsUpdate = true;
       }
       
+      
       if (needsUpdate) {
         await classesCol.updateOne({ _id: cls._id }, { $set: updateData });
         updatedCount++;
