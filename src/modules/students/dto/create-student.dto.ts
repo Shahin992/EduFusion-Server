@@ -63,10 +63,6 @@ export class CreateStudentDto {
 
   @ApiProperty({ required: false })
   @IsOptional()
-  initialMonthFee?: number;
-
-  @ApiProperty({ required: false })
-  @IsOptional()
   admissionFee?: any;
 
   @ApiProperty()

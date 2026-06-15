@@ -18,7 +18,13 @@ export class Fee extends Document {
   amount: number; // Paid amount
 
   @Prop({ required: true, default: 0 })
-  dueAmount: number; // totalAmount - amount
+  dueAmount: number; // totalAmount - amount - discountAmount
+
+  @Prop({ required: true, default: 0 })
+  discountAmount: number; // Discount given
+
+  @Prop()
+  discountNote: string; // Reason for discount
 
   @Prop({ 
     required: true, 

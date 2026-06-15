@@ -59,7 +59,8 @@ export class FeesService {
     }
 
     const amount = Number(data.amount) || 0;
-    const dueAmount = data.dueAmount !== undefined ? Number(data.dueAmount) : (totalAmount - amount);
+    const discountAmount = Number(data.discountAmount) || 0;
+    const dueAmount = data.dueAmount !== undefined ? Number(data.dueAmount) : Math.max(0, totalAmount - amount - discountAmount);
     const status = dueAmount <= 0 ? 'Paid' : (amount > 0 ? 'Partial' : 'Pending');
 
     const receiptNumber = `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
@@ -70,10 +71,12 @@ export class FeesService {
       const existingFee = await this.feeModel.findById(data._id);
       if (existingFee) {
         existingFee.amount = (existingFee.amount || 0) + amount;
-        existingFee.dueAmount = Math.max(0, existingFee.totalAmount - existingFee.amount);
-        existingFee.status = existingFee.dueAmount <= 0 ? 'Paid' : 'Partial';
+        existingFee.discountAmount = (existingFee.discountAmount || 0) + discountAmount;
+        existingFee.dueAmount = Math.max(0, existingFee.totalAmount - existingFee.amount - existingFee.discountAmount);
+        existingFee.status = existingFee.dueAmount <= 0 ? 'Paid' : (existingFee.amount > 0 ? 'Partial' : 'Pending');
         existingFee.paymentDate = data.paymentDate || existingFee.paymentDate;
         existingFee.note = data.note || existingFee.note;
+        if (data.discountNote) existingFee.discountNote = data.discountNote;
         return await existingFee.save();
       }
     }
@@ -82,6 +85,7 @@ export class FeesService {
       ...data,
       totalAmount,
       amount,
+      discountAmount,
       dueAmount,
       status,
       instituteId,
@@ -249,6 +253,98 @@ export class FeesService {
     };
   }
 
+  async getStudentsFeeSummary(instituteId: string, query: any) {
+    const { page = 1, limit = 10, search, classId } = query;
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+
+    const matchStage: any = {
+      instituteId: new Types.ObjectId(instituteId),
+    };
+
+    if (search) {
+      matchStage.$or = [
+        { name: new RegExp(search, 'i') },
+        { rollNumber: new RegExp(search, 'i') },
+        { registrationNumber: new RegExp(search, 'i') },
+      ];
+    }
+
+    if (classId) {
+      matchStage.classId = new Types.ObjectId(classId);
+    }
+
+    const pipeline: any[] = [
+      { $match: matchStage },
+      {
+        $lookup: {
+          from: 'FEES',
+          localField: '_id',
+          foreignField: 'studentId',
+          as: 'fees',
+        },
+      },
+      {
+        $lookup: {
+          from: 'ACADEMIC_CLASSES',
+          localField: 'classId',
+          foreignField: '_id',
+          as: 'classDetails',
+        },
+      },
+      {
+        $unwind: {
+          path: '$classDetails',
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $addFields: {
+          totalPaid: { $sum: '$fees.amount' },
+          totalDue: { $sum: '$fees.dueAmount' },
+          totalDiscount: { $sum: '$fees.discountAmount' },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          name: 1,
+          rollNumber: 1,
+          registrationNumber: 1,
+          classId: { _id: '$classDetails._id', name: '$classDetails.name' },
+          totalPaid: 1,
+          totalDue: 1,
+          totalDiscount: 1,
+          status: {
+            $cond: {
+              if: { $gt: [{ $sum: '$fees.dueAmount' }, 0] },
+              then: 'Pending Dues',
+              else: 'Paid',
+            },
+          },
+        },
+      },
+      { $sort: { 'classId.name': 1, rollNumber: 1 } },
+      { $skip: (pageNum - 1) * limitNum },
+      { $limit: limitNum },
+    ];
+
+    const students = await this.studentModel.aggregate(pipeline).exec();
+
+    const countPipeline = [
+      { $match: matchStage },
+      { $count: 'total' },
+    ];
+    const countResult = await this.studentModel.aggregate(countPipeline).exec();
+    const total = countResult.length > 0 ? countResult[0].total : 0;
+
+    return {
+      students,
+      total,
+      pages: Math.ceil(total / limitNum),
+    };
+  }
+
   async recordBulkPayments(data: { classId: string, feeType?: string, month?: string, feeName?: string, payments: any[] }, instituteId: string) {
     const { feeType = 'Monthly', month, feeName, payments } = data;
     const results = [];
@@ -286,7 +382,14 @@ export class FeesService {
     }).sort({ paymentDate: -1 }).exec();
   }
 
-  async payStudentDues(data: { payments: { feeId: string, amountPaid: number }[] }, instituteId: string) {
+  async getAllStudentFees(studentId: string, instituteId: string) {
+    return this.feeModel.find({
+      studentId: new Types.ObjectId(studentId),
+      instituteId: new Types.ObjectId(instituteId),
+    }).sort({ paymentDate: -1 }).exec();
+  }
+
+  async payStudentDues(data: { payments: { feeId: string, amountPaid: number, discountAmount?: number }[] }, instituteId: string) {
     const results = [];
     for (const p of data.payments) {
       const existingFee = await this.feeModel.findOne({ _id: new Types.ObjectId(p.feeId), instituteId: new Types.ObjectId(instituteId) });
@@ -295,6 +398,7 @@ export class FeesService {
           _id: existingFee._id,
           studentId: existingFee.studentId,
           amount: p.amountPaid,
+          discountAmount: p.discountAmount || 0,
           paymentDate: new Date()
         };
         const res = await this.recordPayment(updateData, instituteId);

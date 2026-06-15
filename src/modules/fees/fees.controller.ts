@@ -32,6 +32,12 @@ export class FeesController {
     return this.feesService.getAllFees(req.user.instituteId, query);
   }
 
+  @Get('students/summary')
+  @ApiOperation({ summary: 'Get student fee summaries' })
+  async getStudentsFeeSummary(@Query() query: any, @Request() req) {
+    return this.feesService.getStudentsFeeSummary(req.user.instituteId, query);
+  }
+
   @Get('dues/:classId')
   @ApiOperation({ summary: 'Get students with dues for a class' })
   async getDues(
@@ -52,6 +58,12 @@ export class FeesController {
   @ApiOperation({ summary: 'Get all pending dues for a student' })
   async getStudentDues(@Param('studentId') studentId: string, @Request() req) {
     return this.feesService.getStudentDues(studentId, req.user.instituteId);
+  }
+
+  @Get('student/:studentId/all')
+  @ApiOperation({ summary: 'Get all fees (due and paid) for a student' })
+  async getAllStudentFees(@Param('studentId') studentId: string, @Request() req) {
+    return this.feesService.getAllStudentFees(studentId, req.user.instituteId);
   }
 
   @Post('student/bulk-pay')

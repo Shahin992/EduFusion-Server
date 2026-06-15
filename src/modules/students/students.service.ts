@@ -221,7 +221,6 @@ export class StudentsService {
         // Trigger BullMQ job to instantly generate Admission & current Monthly fees
         await this.feesQueue.add('generate-initial-fees', { 
           studentId: savedStudent._id.toString(),
-          initialMonthFee: createStudentDto.initialMonthFee,
           admissionFeeOverride: createStudentDto.admissionFee
         }, {
           attempts: 3,
