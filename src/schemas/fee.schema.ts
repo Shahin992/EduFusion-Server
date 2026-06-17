@@ -54,6 +54,16 @@ export class Fee extends Document {
 
   @Prop()
   note: string;
+
+  @Prop({ type: [{
+    amount: Number,
+    discountAmount: Number,
+    paymentDate: Date,
+    transactionId: String,
+    receiptNumber: String,
+    note: String
+  }], default: [] })
+  paymentHistory: any[];
 }
 
 export const FeeSchema = SchemaFactory.createForClass(Fee);

@@ -64,6 +64,8 @@ export class FeesService {
     const status = dueAmount <= 0 ? 'Paid' : (amount > 0 ? 'Partial' : 'Pending');
 
     const receiptNumber = `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const txId = data.transactionId || receiptNumber;
+    const txDate = data.paymentDate || new Date();
 
     // If an existing pending/partial fee for the same month and type exists, we could update it.
     // For now, if we are passing an ID (from edit), update it.
@@ -74,10 +76,20 @@ export class FeesService {
         existingFee.discountAmount = (existingFee.discountAmount || 0) + discountAmount;
         existingFee.dueAmount = Math.max(0, existingFee.totalAmount - existingFee.amount - existingFee.discountAmount);
         existingFee.status = existingFee.dueAmount <= 0 ? 'Paid' : (existingFee.amount > 0 ? 'Partial' : 'Pending');
-        existingFee.paymentDate = data.paymentDate || existingFee.paymentDate;
-        existingFee.note = data.note || existingFee.note;
-        if (data.discountNote) existingFee.discountNote = data.discountNote;
-        if (data.transactionId) existingFee.transactionId = data.transactionId;
+        
+        if (!existingFee.paymentHistory) {
+          existingFee.paymentHistory = [];
+        }
+        
+        existingFee.paymentHistory.push({
+          amount,
+          discountAmount,
+          paymentDate: txDate,
+          transactionId: txId,
+          receiptNumber: txId,
+          note: data.note || ''
+        });
+
         return await existingFee.save();
       }
     }
@@ -91,6 +103,15 @@ export class FeesService {
       status,
       instituteId,
       receiptNumber,
+      transactionId: txId,
+      paymentHistory: [{
+        amount,
+        discountAmount,
+        paymentDate: txDate,
+        transactionId: txId,
+        receiptNumber: txId,
+        note: data.note || ''
+      }]
     });
 
     return await newFee.save();
@@ -410,13 +431,35 @@ export class FeesService {
     const pageNum = Number(page);
     const limitNum = Number(limit);
 
-    const fees = await this.feeModel.find(filter)
-      .sort({ paymentDate: -1 })
-      .skip((pageNum - 1) * limitNum)
-      .limit(limitNum)
-      .exec();
-      
-    const total = await this.feeModel.countDocuments(filter);
+    const pipeline: any[] = [
+      { $match: filter },
+      { $unwind: { path: '$paymentHistory', preserveNullAndEmptyArrays: true } },
+      { $addFields: {
+          amount: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.amount', '$amount'] },
+          discountAmount: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.discountAmount', '$discountAmount'] },
+          paymentDate: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.paymentDate', '$paymentDate'] },
+          transactionId: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.transactionId', '$transactionId'] },
+          receiptNumber: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.receiptNumber', '$receiptNumber'] },
+          note: { $cond: [{ $ifNull: ['$paymentHistory', false] }, '$paymentHistory.note', '$note'] },
+          _id: { $cond: [{ $ifNull: ['$paymentHistory', false] }, { $concat: [{ $toString: '$_id' }, '_', '$paymentHistory.transactionId'] }, '$_id'] },
+          feeId: '$_id'
+        }
+      },
+      { $sort: { paymentDate: -1 } },
+      { $skip: (pageNum - 1) * limitNum },
+      { $limit: limitNum }
+    ];
+
+    const fees = await this.feeModel.aggregate(pipeline).exec();
+
+    // To get the true total count of transactions, we need to count after unwind
+    const countPipeline = [
+      { $match: filter },
+      { $unwind: { path: '$paymentHistory', preserveNullAndEmptyArrays: true } },
+      { $count: 'total' }
+    ];
+    const countResult = await this.feeModel.aggregate(countPipeline).exec();
+    const total = countResult.length > 0 ? countResult[0].total : 0;
     
     return {
       fees,
