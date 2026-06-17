@@ -50,6 +50,9 @@ export class Fee extends Document {
   receiptNumber: string;
 
   @Prop()
+  transactionId: string; // Groups fees paid together
+
+  @Prop()
   note: string;
 }
 

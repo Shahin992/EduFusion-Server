@@ -62,8 +62,8 @@ export class FeesController {
 
   @Get('student/:studentId/all')
   @ApiOperation({ summary: 'Get all fees (due and paid) for a student' })
-  async getAllStudentFees(@Param('studentId') studentId: string, @Request() req) {
-    return this.feesService.getAllStudentFees(studentId, req.user.instituteId);
+  async getAllStudentFees(@Param('studentId') studentId: string, @Query() query: any, @Request() req) {
+    return this.feesService.getAllStudentFees(studentId, req.user.instituteId, query);
   }
 
   @Post('student/bulk-pay')

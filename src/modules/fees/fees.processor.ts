@@ -2,7 +2,7 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Fee } from '../../schemas/fee.schema';
 import { Student } from '../../schemas/student.schema';
 import { AcademicClass } from '../../schemas/academic-class.schema';
@@ -113,28 +113,18 @@ export class FeesProcessor extends WorkerHost {
         expectedFee = baseFee;
       }
 
-      // Calculate Pro-Rata Fee based on remaining days in the month
-      const today = new Date();
-      const currentDay = today.getDate();
-      const totalDaysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-      
-      // Calculate the proportion of the month remaining (inclusive of today)
-      const remainingDays = totalDaysInMonth - currentDay + 1;
-      
-      // Pro-rata calculation, rounded to nearest whole number
-      let proRatedFee = expectedFee > 0 ? Math.round((expectedFee / totalDaysInMonth) * remainingDays) : 0;
-      
-      let note = `Auto-generated First Monthly Fee (Pro-rated for ${remainingDays} days)`;
+      let finalMonthlyFee = expectedFee;
+      let note = `Auto-generated First Monthly Fee`;
 
       if (initialMonthFee !== undefined && initialMonthFee !== null) {
-        proRatedFee = Number(initialMonthFee);
+        finalMonthlyFee = Number(initialMonthFee);
         note = 'Auto-generated First Monthly Fee (Custom Override)';
       }
 
       const feesToInsert = [];
 
       // Generate Current Monthly Fee
-      if (proRatedFee > 0) {
+      if (finalMonthlyFee > 0) {
         const existingMonthly = await this.feeModel.findOne({
           studentId: student._id,
           instituteId: student.instituteId,
@@ -148,9 +138,9 @@ export class FeesProcessor extends WorkerHost {
             instituteId: student.instituteId,
             feeType: 'Monthly',
             month: currentMonth,
-            totalAmount: proRatedFee,
+            totalAmount: finalMonthlyFee,
             amount: 0,
-            dueAmount: proRatedFee,
+            dueAmount: finalMonthlyFee,
             status: 'Pending',
             paymentDate: new Date(),
             receiptNumber: `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,

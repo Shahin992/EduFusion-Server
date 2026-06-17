@@ -427,6 +427,10 @@ export class StudentsService {
       instituteId: new Types.ObjectId(instituteId),
     });
 
+    if (result.deletedCount > 0) {
+      await this.userModel.deleteOne({ studentId: new Types.ObjectId(id) });
+    }
+
     if (result.deletedCount === 0) {
       throw new NotFoundException('Student not found');
     }

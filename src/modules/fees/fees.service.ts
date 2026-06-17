@@ -77,6 +77,7 @@ export class FeesService {
         existingFee.paymentDate = data.paymentDate || existingFee.paymentDate;
         existingFee.note = data.note || existingFee.note;
         if (data.discountNote) existingFee.discountNote = data.discountNote;
+        if (data.transactionId) existingFee.transactionId = data.transactionId;
         return await existingFee.save();
       }
     }
@@ -382,15 +383,52 @@ export class FeesService {
     }).sort({ paymentDate: -1 }).exec();
   }
 
-  async getAllStudentFees(studentId: string, instituteId: string) {
-    return this.feeModel.find({
+  async getAllStudentFees(studentId: string, instituteId: string, query: any) {
+    const { status, page = 1, limit = 20, year } = query;
+    const filter: any = {
       studentId: new Types.ObjectId(studentId),
       instituteId: new Types.ObjectId(instituteId),
-    }).sort({ paymentDate: -1 }).exec();
+    };
+    
+    if (status === 'due') {
+      filter.status = { $in: ['Pending', 'Partial'] };
+    } else if (status === 'paid') {
+      // Include Partial here so that partially paid fees appear in the transaction history
+      filter.status = { $in: ['Paid', 'Clear', 'Partial'] };
+    }
+    
+    if (year && year !== 'all') {
+      const y = parseInt(year, 10);
+      if (!isNaN(y)) {
+        filter.createdAt = {
+          $gte: new Date(y, 0, 1),
+          $lte: new Date(y, 11, 31, 23, 59, 59, 999)
+        };
+      }
+    }
+    
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+
+    const fees = await this.feeModel.find(filter)
+      .sort({ paymentDate: -1 })
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
+      .exec();
+      
+    const total = await this.feeModel.countDocuments(filter);
+    
+    return {
+      fees,
+      total,
+      pages: Math.ceil(total / limitNum)
+    };
   }
 
-  async payStudentDues(data: { payments: { feeId: string, amountPaid: number, discountAmount?: number }[] }, instituteId: string) {
+  async payStudentDues(data: { payments: { feeId: string, amountPaid: number, discountAmount?: number }[], advanceMonths?: { month: string, totalAmount: number, amountPaid: number, discountAmount: number, studentId: string }[] }, instituteId: string) {
     const results = [];
+    const transactionId = `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
     for (const p of data.payments) {
       const existingFee = await this.feeModel.findOne({ _id: new Types.ObjectId(p.feeId), instituteId: new Types.ObjectId(instituteId) });
       if (existingFee) {
@@ -399,12 +437,32 @@ export class FeesService {
           studentId: existingFee.studentId,
           amount: p.amountPaid,
           discountAmount: p.discountAmount || 0,
-          paymentDate: new Date()
+          paymentDate: new Date(),
+          transactionId
         };
         const res = await this.recordPayment(updateData, instituteId);
         results.push(res);
       }
     }
+    
+    if (data.advanceMonths && data.advanceMonths.length > 0) {
+      for (const adv of data.advanceMonths) {
+        const newFeeData = {
+          studentId: adv.studentId,
+          feeType: 'Monthly',
+          month: adv.month,
+          totalAmount: adv.totalAmount,
+          amount: adv.amountPaid,
+          discountAmount: adv.discountAmount || 0,
+          paymentDate: new Date(),
+          note: 'Advance Payment',
+          transactionId
+        };
+        const res = await this.recordPayment(newFeeData, instituteId);
+        results.push(res);
+      }
+    }
+    
     return results;
   }
 

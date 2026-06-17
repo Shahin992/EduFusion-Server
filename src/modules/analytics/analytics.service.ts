@@ -43,6 +43,18 @@ export class AnalyticsService {
     let targetMonth = now.toLocaleString('default', { month: 'long', year: 'numeric' });
     let monthMatch: any = { month: targetMonth };
     let dateFilter: any = {};
+    let paymentDateFilter: any = { 
+      paymentDate: { 
+        $gte: new Date(now.getFullYear(), now.getMonth(), 1), 
+        $lte: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) 
+      } 
+    };
+    let expenseDateFilter: any = { 
+      date: { 
+        $gte: new Date(now.getFullYear(), now.getMonth(), 1), 
+        $lte: new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999) 
+      } 
+    };
 
     if (timeframe === 'previous_month') {
       const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -52,13 +64,19 @@ export class AnalyticsService {
       const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
       dateFilter = { createdAt: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } };
+      paymentDateFilter = { paymentDate: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } };
+      expenseDateFilter = { date: { $gte: startOfPrevMonth, $lte: endOfPrevMonth } };
     } else if (timeframe === 'current_year') {
       const yearStr = now.getFullYear().toString();
       monthMatch = { month: { $regex: yearStr, $options: 'i' } };
       dateFilter = { createdAt: { $gte: new Date(now.getFullYear(), 0, 1) } };
+      paymentDateFilter = { paymentDate: { $gte: new Date(now.getFullYear(), 0, 1) } };
+      expenseDateFilter = { date: { $gte: new Date(now.getFullYear(), 0, 1) } };
     } else if (timeframe === 'all_time') {
       monthMatch = {};
       dateFilter = {};
+      paymentDateFilter = {};
+      expenseDateFilter = {};
     }
 
     // KPIs
@@ -67,25 +85,24 @@ export class AnalyticsService {
       this.teacherModel.countDocuments({ instituteId: instId, status: 'Active', ...dateFilter }),
       this.examModel.countDocuments({ instituteId: instId, ...dateFilter }),
       this.feeModel.aggregate([
-        { $match: { instituteId: instId, status: 'Paid', ...monthMatch } },
+        { $match: { instituteId: instId, amount: { $gt: 0 }, ...paymentDateFilter } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]),
       this.expenseModel.aggregate([
-        { $match: { instituteId: instId, ...dateFilter } }, // or monthMatch? Assuming dateFilter matches the timeframe. Let's use dateFilter for consistency with other KPIs. Wait, Fee is using monthMatch.
-        // Actually, if we use monthMatch for fee, we should use dateFilter or monthMatch for expenses.
-        // The dashboard says "Fee Collection" without specifying month in title, but it passes monthMatch.
+        { $match: { instituteId: instId, ...expenseDateFilter } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ])
     ]);
 
-    // Fee Chart Logic (Paid vs Due for current month)
-    const paidStudentsCount = await this.feeModel.distinct('studentId', {
+    // Fee Chart Logic (Paid vs Due)
+    // A student is considered 'Due' if they have ANY fee with a dueAmount > 0
+    const dueStudentsCount = await this.feeModel.distinct('studentId', {
       instituteId: instId,
-      feeType: 'Monthly',
-      status: 'Paid',
-      ...monthMatch
+      dueAmount: { $gt: 0 }
     }).then(res => res.length);
-    const dueStudentsCount = Math.max(0, totalStudents - paidStudentsCount);
+    
+    // Paid students are simply total students minus those with dues
+    const paidStudentsCount = Math.max(0, totalStudents - dueStudentsCount);
 
     // Payroll Chart Logic
     const salaries = await this.salaryModel.aggregate([
