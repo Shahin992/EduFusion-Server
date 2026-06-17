@@ -95,14 +95,15 @@ export class AnalyticsService {
     ]);
 
     // Fee Chart Logic (Paid vs Due)
-    // A student is considered 'Due' if they have ANY fee with a dueAmount > 0
-    const dueStudentsCount = await this.feeModel.distinct('studentId', {
+    // A student is considered 'Paid' if they have a 'Paid' fee record for the given timeframe/month
+    const paidStudentsCount = await this.feeModel.distinct('studentId', {
       instituteId: instId,
-      dueAmount: { $gt: 0 }
+      status: 'Paid',
+      ...monthMatch
     }).then(res => res.length);
     
-    // Paid students are simply total students minus those with dues
-    const paidStudentsCount = Math.max(0, totalStudents - dueStudentsCount);
+    // Due students are simply total active students minus those who have paid
+    const dueStudentsCount = Math.max(0, totalStudents - paidStudentsCount);
 
     // Payroll Chart Logic
     const salaries = await this.salaryModel.aggregate([
