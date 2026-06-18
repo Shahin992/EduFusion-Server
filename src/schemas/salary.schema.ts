@@ -35,6 +35,12 @@ export class Salary extends Document {
 
   @Prop()
   note: string;
+
+  @Prop([{ title: String, amount: Number }])
+  allowances: { title: string; amount: number }[];
+
+  @Prop([{ title: String, amount: Number }])
+  deductions: { title: string; amount: number }[];
 }
 
 export const SalarySchema = SchemaFactory.createForClass(Salary);

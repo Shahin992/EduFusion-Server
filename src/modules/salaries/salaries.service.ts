@@ -21,6 +21,13 @@ export class SalariesService {
 
     const baseSalary = Number(teacher.monthlySalary) || 0;
     const paymentAmount = Number(data.amountPaid) || 0;
+    const allowances = Array.isArray(data.allowances) ? data.allowances : [];
+    const deductions = Array.isArray(data.deductions) ? data.deductions : [];
+    
+    const totalAllowances = allowances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+    const totalDeductions = deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+    
+    const netSalary = baseSalary + totalAllowances - totalDeductions;
 
     let salary = await this.salaryModel.findOne({
       teacherId: new Types.ObjectId(data.teacherId),
@@ -33,14 +40,23 @@ export class SalariesService {
         throw new Error('Salary already fully paid for this month');
       }
       
+      // If adding additional allowances/deductions to an existing partial payment, 
+      // we'd need to recalculate netSalary here. For now, assume they append to existing arrays
+      if (allowances.length > 0) salary.allowances = [...salary.allowances, ...allowances];
+      if (deductions.length > 0) salary.deductions = [...salary.deductions, ...deductions];
+      
+      const newTotalAllowances = salary.allowances.reduce((sum, a) => sum + (Number(a.amount) || 0), 0);
+      const newTotalDeductions = salary.deductions.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+      const currentNetSalary = salary.baseSalary + newTotalAllowances - newTotalDeductions;
+      
       salary.amountPaid += paymentAmount;
-      salary.dueAmount = Math.max(0, baseSalary - salary.amountPaid);
+      salary.dueAmount = Math.max(0, currentNetSalary - salary.amountPaid);
       salary.status = salary.dueAmount <= 0 ? 'Paid' : 'Partial';
       
       return salary.save();
     }
 
-    const dueAmount = Math.max(0, baseSalary - paymentAmount);
+    const dueAmount = Math.max(0, netSalary - paymentAmount);
     const status = dueAmount <= 0 ? 'Paid' : 'Partial';
 
     const newSalary = new this.salaryModel({
@@ -49,6 +65,8 @@ export class SalariesService {
       instituteId: new Types.ObjectId(instituteId),
       baseSalary: baseSalary,
       amountPaid: paymentAmount,
+      allowances,
+      deductions,
       dueAmount: dueAmount,
       status: status
     });
