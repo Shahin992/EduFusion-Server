@@ -56,10 +56,15 @@ export class InstitutesService {
           .map((clsData) => ({
             name: clsData.name?.trim(),
             subjects: Array.isArray(clsData.subjects)
-              ? clsData.subjects.filter((subject) => subject?.trim())
+              ? clsData.subjects.filter((subject) => {
+                  if (typeof subject === 'string') return subject.trim() !== '';
+                  if (typeof subject === 'object' && subject !== null) return subject.name?.trim() !== '';
+                  return false;
+                })
               : [],
             monthlyFee: clsData.monthlyFee || 0,
             admissionFee: clsData.admissionFee || 0,
+            groups: clsData.groups || []
           }))
           .filter((clsData) => clsData.name)
       : [];
@@ -91,17 +96,23 @@ export class InstitutesService {
           classCode: classIdx++,
           monthlyFee: clsData.monthlyFee,
           admissionFee: clsData.admissionFee,
-          subjects: []
+          subjects: [],
+          groups: clsData.groups || []
         });
         const savedClass = await academicClass.save();
 
         if (clsData.subjects && clsData.subjects.length > 0) {
-          const subjectsToCreate = clsData.subjects.map(subName => ({
-            name: subName,
-            code: subName.substring(0, 3).toUpperCase() + Math.floor(Math.random() * 900 + 100),
-            classId: savedClass._id,
-            instituteId: instId
-          }));
+          const subjectsToCreate = clsData.subjects.map(sub => {
+            const subName = typeof sub === 'string' ? sub : sub.name;
+            const subGroup = typeof sub === 'string' ? 'General' : (sub.group || 'General');
+            return {
+              name: subName,
+              code: subName.substring(0, 3).toUpperCase() + Math.floor(Math.random() * 900 + 100),
+              classId: savedClass._id,
+              instituteId: instId,
+              group: subGroup
+            };
+          });
           
           const savedSubjects = await this.subjectModel.insertMany(subjectsToCreate);
           

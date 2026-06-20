@@ -83,4 +83,9 @@ export class CreateStudentDto {
   @ApiProperty({ required: false })
   @IsOptional()
   dateOfBirth?: Date;
+
+  @ApiProperty({ required: false, enum: ['Science', 'Commerce', 'Humanities', 'General'] })
+  @IsEnum(['Science', 'Commerce', 'Humanities', 'General'])
+  @IsOptional()
+  group?: string;
 }

@@ -69,6 +69,9 @@ export class Student extends Document {
   @Prop({ default: 'Active', enum: ['Active', 'Inactive', 'Suspended', 'Graduated'] })
   status: string;
 
+  @Prop({ type: String, enum: ['Science', 'Commerce', 'Humanities', 'General'], default: 'General' })
+  group: string;
+
   @Prop()
   photoUrl: string;
 

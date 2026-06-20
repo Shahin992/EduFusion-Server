@@ -12,6 +12,9 @@ export class AcademicClass extends Document {
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Subject' }] })
   subjects: Types.ObjectId[];
 
+  @Prop({ type: [String], default: [] })
+  groups: string[];
+
   @Prop({ default: 0 })
   monthlyFee: number; // Base monthly fee for this class
 

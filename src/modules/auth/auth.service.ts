@@ -113,7 +113,6 @@ export class AuthService {
 
     // If registering as admin, we create an institute
     if (userFields.role === 'admin' && instituteName) {
-      const slug = instituteName.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
       const trialDays = 30;
       const trialExpiresAt = new Date();
       trialExpiresAt.setDate(trialExpiresAt.getDate() + trialDays);
@@ -121,6 +120,10 @@ export class AuthService {
       // Get next institute code
       const lastInstitute = await this.instituteModel.findOne().sort({ instituteCode: -1 }).exec();
       const nextCode = lastInstitute ? (lastInstitute.instituteCode || 0) + 1 : 1;
+
+      const baseSlug = instituteName.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
+      const randomStr = crypto.randomBytes(2).toString('hex');
+      const slug = `${baseSlug}-${randomStr}`;
 
       const institute = new this.instituteModel({
         name: instituteName,
@@ -132,8 +135,13 @@ export class AuthService {
           email: userFields.email
         }
       });
-      const savedInstitute = await institute.save();
-      instituteId = savedInstitute._id;
+      let savedInstitute;
+      try {
+        savedInstitute = await institute.save();
+        instituteId = savedInstitute._id;
+      } catch (error) {
+        throw error;
+      }
     }
 
     const hashedPassword = await bcrypt.hash(userFields.password, 10);

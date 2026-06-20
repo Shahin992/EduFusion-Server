@@ -30,9 +30,14 @@ async function run() {
     process.exit(0);
   }
 
-  const files = fs.readdirSync(migrationsDir)
-    .filter(f => f.endsWith('.js') && f !== 'run-migrations.js')
-    .sort(); // Run sequentially
+  // EXPLICITLY DEFINED MIGRATIONS
+  // Add new migration filenames here manually to execute them.
+  const files = [
+    '01_add_fee_and_code_to_classes.js',
+    '02_remove_monthly_fees_from_students.js',
+    '03_add_groups_to_classes_and_subjects.js',
+    '04_add_group_to_students.js'
+  ];
 
   console.log(`Found ${files.length} migration files. Checking status...`);
 
@@ -67,6 +72,44 @@ async function run() {
   }
 
   console.log('All migrations executed successfully!');
+  
+  // --- Update MIGRATION_TRACK.md ---
+  console.log('Updating MIGRATION_TRACK.md...');
+  const executedMigrations = await Migration.find({}).sort({ executedAt: 1 });
+  const executedMap = new Map();
+  executedMigrations.forEach(m => executedMap.set(m.filename, m.executedAt));
+
+  let mdContent = `# EduFusion Migration Tracker\n\n`;
+  mdContent += `*Last Updated: ${new Date().toLocaleString()}*\n\n`;
+  mdContent += `| Migration File | Status | Executed At |\n`;
+  mdContent += `|----------------|--------|-------------|\n`;
+
+  let pendingCount = 0;
+  let doneCount = 0;
+
+  for (const file of files) {
+    if (executedMap.has(file)) {
+      mdContent += `| \`${file}\` | ✅ Done | ${executedMap.get(file).toLocaleString()} |\n`;
+      doneCount++;
+    } else {
+      mdContent += `| \`${file}\` | ⏳ Pending | - |\n`;
+      pendingCount++;
+    }
+  }
+
+  for (const [file, date] of executedMap.entries()) {
+    if (!files.includes(file)) {
+      mdContent += `| \`${file}\` | ⚠️ Missing File | ${date.toLocaleString()} |\n`;
+    }
+  }
+
+  mdContent += `\n### Summary\n- **Total Migrations:** ${files.length}\n- **Executed:** ${doneCount}\n- **Pending:** ${pendingCount}\n`;
+
+  const outPath = path.join(__dirname, 'MIGRATION_TRACK.md');
+  fs.writeFileSync(outPath, mdContent);
+  console.log(`✅ Migration track saved successfully to: MIGRATION_TRACK.md`);
+  // ---------------------------------
+
   await mongoose.disconnect();
 }
 

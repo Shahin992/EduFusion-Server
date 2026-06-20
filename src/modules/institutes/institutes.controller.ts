@@ -7,6 +7,7 @@ import {
   UseGuards, 
   Request,
   UnauthorizedException,
+  BadRequestException,
   Post,
   UseInterceptors,
   UploadedFile
@@ -49,6 +50,16 @@ export class InstitutesController {
     if (!req.user.instituteId) {
       throw new UnauthorizedException('No institute context found');
     }
+
+    if (updateDto.branding) {
+      if (!updateDto.branding.email || updateDto.branding.email.trim() === '') {
+        throw new BadRequestException('Institutional email is required');
+      }
+      if (!updateDto.branding.phone || !/^01\d{9}$/.test(updateDto.branding.phone)) {
+        throw new BadRequestException('Phone number must start with 01 and be exactly 11 digits');
+      }
+    }
+
     const data = await this.institutesService.update(req.user.instituteId, updateDto);
     return {
       success: true,
@@ -80,6 +91,16 @@ export class InstitutesController {
     if (!req.user.instituteId) {
       throw new UnauthorizedException('No institute context found');
     }
+
+    if (data.branding) {
+      if (!data.branding.email || data.branding.email.trim() === '') {
+        throw new BadRequestException('Institutional email is required');
+      }
+      if (!data.branding.phone || !/^01\d{9}$/.test(data.branding.phone)) {
+        throw new BadRequestException('Phone number must start with 01 and be exactly 11 digits');
+      }
+    }
+
     const institute = await this.institutesService.completeOnboarding(req.user.instituteId, data);
     return {
       success: true,

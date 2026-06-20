@@ -14,6 +14,9 @@ export class Subject extends Document {
 
   @Prop({ type: Types.ObjectId, ref: 'AcademicClass', required: true })
   classId: Types.ObjectId;
+
+  @Prop({ type: String, enum: ['Science', 'Commerce', 'Humanities', 'General'], default: 'General' })
+  group: string;
 }
 
 export const SubjectSchema = SchemaFactory.createForClass(Subject);
