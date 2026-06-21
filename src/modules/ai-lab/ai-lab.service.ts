@@ -54,6 +54,7 @@ export class AiLabService {
       4. For Creative (Srijonshil) Questions, create a realistic scenario/stem followed by 4 parts (A, B, C, D) with increasing cognitive depth (Knowledge, Understanding, Application, Higher Order).
       5. Use professional academic tone in ${language}.
       6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
+         - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
          - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
          - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
          - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
@@ -175,6 +176,7 @@ export class AiLabService {
       4. For Creative (Srijonshil) Questions, ensure the scenario is realistic.
       5. Use professional academic tone in ${draft.language}.
       6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
+         - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
          - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
          - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
          - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
