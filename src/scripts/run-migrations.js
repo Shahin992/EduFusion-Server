@@ -109,8 +109,12 @@ async function run() {
   mdContent += `\n### Summary\n- **Total Migrations:** ${files.length}\n- **Executed:** ${doneCount}\n- **Pending:** ${pendingCount}\n`;
 
   const outPath = path.join(__dirname, 'MIGRATION_TRACK.md');
-  fs.writeFileSync(outPath, mdContent);
-  console.log(`✅ Migration track saved successfully to: MIGRATION_TRACK.md`);
+  try {
+    fs.writeFileSync(outPath, mdContent);
+    console.log(`✅ Migration track saved successfully to: MIGRATION_TRACK.md`);
+  } catch (writeErr) {
+    console.warn(`[WARN] Could not write to MIGRATION_TRACK.md (likely a read-only filesystem): ${writeErr.message}`);
+  }
   // ---------------------------------
 
   await mongoose.disconnect();
