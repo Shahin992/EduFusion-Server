@@ -36,7 +36,10 @@ async function run() {
     '01_add_fee_and_code_to_classes.js',
     '02_remove_monthly_fees_from_students.js',
     '03_add_groups_to_classes_and_subjects.js',
-    '04_add_group_to_students.js'
+    '04_add_group_to_students.js',
+    '05_create_default_plans.js',
+    '06_create_superadmin.js',
+    '07_rename_billing_collections_to_uppercase.js'
   ];
 
   console.log(`Found ${files.length} migration files. Checking status...`);

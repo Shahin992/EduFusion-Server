@@ -20,6 +20,7 @@ import { FeesModule } from './modules/fees/fees.module';
 import { SalariesModule } from './modules/salaries/salaries.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
@@ -68,6 +69,7 @@ import { Redis } from 'ioredis';
     SalariesModule,
     AnalyticsModule,
     SuperAdminModule,
+    BillingModule,
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 60,

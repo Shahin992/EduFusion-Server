@@ -86,10 +86,18 @@ export class AuthService {
           role: user.role,
           instituteId: user.instituteId,
           institute: institute ? {
+            _id: institute._id,
             name: institute.name,
+            slug: institute.slug,
             logoUrl: institute.logoUrl,
             branding: institute.branding,
-            isOnboarded: institute.isOnboarded
+            gradingRules: institute.gradingRules,
+            config: institute.config,
+            subscriptionTier: institute.subscriptionTier,
+            trialExpiresAt: institute.subscriptionTier === 'trial' ? institute.trialExpiresAt : undefined,
+            subscriptionEndsAt: institute.subscriptionEndsAt,
+            isOnboarded: institute.isOnboarded,
+            onboardingStep: institute.onboardingStep,
           } : null
         },
         isOnboarded: institute?.isOnboarded || false
