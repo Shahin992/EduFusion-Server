@@ -55,6 +55,19 @@ export class Institute extends Document {
 
   @Prop({ default: 1 })
   instituteCode: number; // For smart registration number (e.g. 05)
+
+  // WAHA Integration
+  @Prop()
+  wahaSessionId: string;
+
+  @Prop({ default: 'UNINITIALIZED', enum: ['UNINITIALIZED', 'CONNECTED', 'DISCONNECTED'] })
+  wahaStatus: string;
+
+  @Prop()
+  wahaConnectedAt: Date;
+
+  @Prop()
+  wahaNumber: string;
 }
 
 export const InstituteSchema = SchemaFactory.createForClass(Institute);

@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  waha:
+    image: devlikeapro/waha
+    container_name: edufusion_waha
+    restart: always
+    ports:
+      - '3000:3000'
+    environment:
+      # Optional: set WAHA core properties like auth, storage, etc.
+      - WAHA_LOG_LEVEL=info
+      - WHATSAPP_DEFAULT_ENGINE=NOWEBJS
+      - WAHA_API_KEY=edufusion123
+    volumes:
+      - ./waha-data-new:/app/.waha
+    networks:
+      - edufusion_network
+
+networks:
+  edufusion_network:
+    driver: bridge

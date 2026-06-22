@@ -21,6 +21,7 @@ import { SalariesModule } from './modules/salaries/salaries.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SuperAdminModule } from './modules/super-admin/super-admin.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { WahaModule } from './modules/waha/waha.module';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { BullModule } from '@nestjs/bullmq';
@@ -70,6 +71,7 @@ import { Redis } from 'ioredis';
     AnalyticsModule,
     SuperAdminModule,
     BillingModule,
+    WahaModule,
     ThrottlerModule.forRoot([{
       ttl: 60000,
       limit: 60,
