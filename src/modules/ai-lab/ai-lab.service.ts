@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { AIQuestion } from '../../schemas/ai-question.schema';
 import { AIQuestionSet } from '../../schemas/ai-question-set.schema';
 
@@ -234,13 +234,50 @@ export class AiLabService {
 
   private async callAiWithFallback(prompt: string) {
     const models = [
-      'gemini-3-flash-preview',
-      'gemini-3.1-flash-lite-preview',
       'gemini-2.0-flash',
-      'gemini-3-pro-preview',
-      'gemini-2.0-flash-lite'
+      'gemini-1.5-flash',
+      'gemini-1.5-flash-8b'
     ];
     let lastError = null;
+
+    const schema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        mcqs: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              text: { type: SchemaType.STRING },
+              options: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+              answer: { type: SchemaType.STRING }
+            },
+            required: ["text", "options", "answer"]
+          }
+        },
+        creatives: {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties: {
+              scenario: { type: SchemaType.STRING },
+              parts: {
+                type: SchemaType.OBJECT,
+                properties: {
+                  A: { type: SchemaType.STRING },
+                  B: { type: SchemaType.STRING },
+                  C: { type: SchemaType.STRING },
+                  D: { type: SchemaType.STRING }
+                },
+                required: ["A", "B", "C", "D"]
+              }
+            },
+            required: ["scenario", "parts"]
+          }
+        }
+      },
+      required: ["mcqs", "creatives"]
+    };
 
     for (const modelName of models) {
       try {
@@ -249,6 +286,7 @@ export class AiLabService {
           model: modelName,
           generationConfig: { 
             responseMimeType: 'application/json',
+            responseSchema: schema,
             temperature: 0.7,
             topP: 0.8,
             topK: 40
@@ -259,46 +297,25 @@ export class AiLabService {
         const response = await result.response;
         const text = response.text();
         
-        // Robust JSON extraction
-        let jsonStr = text;
-        if (text.includes('```')) {
-          const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-          if (match && match[1]) {
-            jsonStr = match[1];
-          }
-        }
-        
-        jsonStr = jsonStr.trim();
-        
-        // Sometimes the model might return text before/after the JSON even with application/json
-        // Let's try to find the first '{' and last '}'
-        const firstBrace = jsonStr.indexOf('{');
-        const lastBrace = jsonStr.lastIndexOf('}');
-        if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-          jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-        }
-
-        try {
-          return JSON.parse(jsonStr);
-        } catch (parseErr) {
-          console.warn(`JSON Parse failed for ${modelName}:`, parseErr.message);
-          console.debug('Problematic JSON string:', jsonStr);
-          throw new Error('Invalid response format');
-        }
+        return JSON.parse(text);
       } catch (err) {
-        console.warn(`Model ${modelName} failed:`, err.message);
+        console.warn(`Model ${modelName} failed. Exact Error:`, err.message, err.response?.text?.());
         lastError = err;
-        // If it's a 429 (rate limit), we might want to wait or try a different model
-        // but for now we just continue to the next model
+        
+        // If it's a 429 (rate limit) or quota issue, wait 2 seconds before trying the next model
+        if (err.status === 429 || err.message?.includes('429') || err.message?.includes('Quota')) {
+           await new Promise(resolve => setTimeout(resolve, 2000));
+        }
       }
     }
 
     if (lastError) {
-      if (lastError.status === 429 || lastError.message?.includes('429')) {
-        throw new InternalServerErrorException('The service is currently busy. Please wait a minute and try again.');
+      console.error('All AI generation attempts failed. Final exact error:', lastError.message, lastError.response?.text?.());
+      if (lastError.status === 429 || lastError.message?.includes('429') || lastError.message?.includes('Quota')) {
+        throw new InternalServerErrorException('Our server is currently experiencing high demand for question generation. Please wait a moment and try again.');
       }
       if (lastError.status === 404 || lastError.message?.includes('404')) {
-        throw new InternalServerErrorException('The service is currently unavailable. Please contact support.');
+        throw new InternalServerErrorException('The question generation service is temporarily unavailable. Please contact support.');
       }
     }
     

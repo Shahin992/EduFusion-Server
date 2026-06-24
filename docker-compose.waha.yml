@@ -15,8 +15,8 @@ services:
     volumes:
       - ./waha-data-new:/app/.waha
     networks:
-      - edufusion_network
+      - edufusion-network
 
 networks:
-  edufusion_network:
+  edufusion-network:
     driver: bridge
