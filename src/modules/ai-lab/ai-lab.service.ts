@@ -95,7 +95,7 @@ export class AiLabService {
       if (err instanceof InternalServerErrorException) {
         throw err;
       }
-      throw new InternalServerErrorException('Failed to generate questions after multiple attempts. Please try again.');
+      throw new InternalServerErrorException('An unexpected error occurred while generating questions. Please try again later.');
     }
 
     // Combine questions for draft
@@ -228,13 +228,12 @@ export class AiLabService {
       if (err instanceof InternalServerErrorException) {
         throw err;
       }
-      throw new InternalServerErrorException('Question regeneration failed. Please try again.');
+      throw new InternalServerErrorException('An unexpected error occurred while refining questions. Please try again later.');
     }
   }
 
   private async callAiWithFallback(prompt: string) {
     const models = [
-      'gemini-2.0-flash',
       'gemini-1.5-flash',
       'gemini-1.5-flash-8b'
     ];
@@ -295,7 +294,10 @@ export class AiLabService {
 
         const result = await model.generateContent(prompt);
         const response = await result.response;
-        const text = response.text();
+        let text = response.text();
+        
+        // Robust JSON parsing: remove potential markdown formatting
+        text = text.replace(/```json\n?|```\n?/g, '').trim();
         
         return JSON.parse(text);
       } catch (err) {
@@ -312,14 +314,14 @@ export class AiLabService {
     if (lastError) {
       console.error('All AI generation attempts failed. Final exact error:', lastError.message, lastError.response?.text?.());
       if (lastError.status === 429 || lastError.message?.includes('429') || lastError.message?.includes('Quota')) {
-        throw new InternalServerErrorException('Our server is currently experiencing high demand for question generation. Please wait a moment and try again.');
+        throw new InternalServerErrorException('Service is currently experiencing high demand. Please try again in a few moments.');
       }
       if (lastError.status === 404 || lastError.message?.includes('404')) {
-        throw new InternalServerErrorException('The question generation service is temporarily unavailable. Please contact support.');
+        throw new InternalServerErrorException('Service is temporarily unavailable. Please try again later.');
       }
     }
     
-    throw new InternalServerErrorException('Failed to generate questions after multiple attempts.');
+    throw new InternalServerErrorException('We are unable to process your request at this time. Please try again later.');
   }
 
   async saveFinalizedSet(draft: any, userId: string, instituteId: string) {

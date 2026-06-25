@@ -36,8 +36,9 @@ export class WahaProcessor extends WorkerHost {
       const wahaSessionId = institute.wahaSessionId;
 
       // Make the actual API call to WAHA Core
+      const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
       const response = await axios.post(
-        `http://localhost:3000/api/sendText`,
+        `${wahaApiUrl}/api/sendText`,
         {
           session: 'default', // Core only supports "default"
           chatId: `${recipientNumber}@c.us`,

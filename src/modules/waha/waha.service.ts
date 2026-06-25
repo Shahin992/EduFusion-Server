@@ -23,7 +23,8 @@ export class WahaService {
 
     try {
       const sessionId = 'default';
-      const res = await axios.get(`http://localhost:3000/api/sessions/${sessionId}`, {
+      const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+      const res = await axios.get(`${wahaApiUrl}/api/sessions/${sessionId}`, {
         headers: { 'X-Api-Key': 'edufusion123' }
       });
       const data = res.data;
@@ -67,7 +68,8 @@ export class WahaService {
       
       // Start session
       try {
-        await axios.post(`http://localhost:3000/api/sessions/start`, {
+        const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+        await axios.post(`${wahaApiUrl}/api/sessions/start`, {
           name: sessionId,
           config: {}
         }, {
@@ -82,7 +84,8 @@ export class WahaService {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Get QR code
-      const qrRes = await axios.get(`http://localhost:3000/api/${sessionId}/auth/qr?format=image`, {
+      const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+      const qrRes = await axios.get(`${wahaApiUrl}/api/${sessionId}/auth/qr?format=image`, {
         responseType: 'arraybuffer',
         headers: { 'X-Api-Key': 'edufusion123' }
       });
