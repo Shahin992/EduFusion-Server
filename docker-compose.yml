@@ -35,6 +35,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+  waha:
+    image: devlikeapro/waha
+    ports:
+      - "3000:3000"
+    environment:
+      - WAHA_ZIPKIN_URL=
+      - WAHA_PRINT_QR=False
     networks:
       - edufusion-network
 
