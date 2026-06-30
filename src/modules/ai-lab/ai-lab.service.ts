@@ -5,19 +5,33 @@ import { Model, Types } from 'mongoose';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { AIQuestion } from '../../schemas/ai-question.schema';
 import { AIQuestionSet } from '../../schemas/ai-question-set.schema';
+import { Institute } from '../../schemas/institute.schema';
+import Groq from 'groq-sdk';
+import OpenAI from 'openai';
 
 @Injectable()
 export class AiLabService {
   private genAI: GoogleGenerativeAI;
+  private groq: any;
+  private openai: OpenAI;
 
   constructor(
     @InjectModel(AIQuestion.name) private aiQuestionModel: Model<AIQuestion>,
     @InjectModel(AIQuestionSet.name) private aiQuestionSetModel: Model<AIQuestionSet>,
+    @InjectModel(Institute.name) private instituteModel: Model<Institute>,
     private configService: ConfigService,
   ) {
     const apiKey = this.configService.get<string>('geminiApiKey');
     if (apiKey) {
       this.genAI = new GoogleGenerativeAI(apiKey);
+    }
+    const groqApiKey = process.env.GROQ_API_KEY;
+    if (groqApiKey) {
+      this.groq = new Groq({ apiKey: groqApiKey });
+    }
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (openaiApiKey) {
+      this.openai = new OpenAI({ apiKey: openaiApiKey });
     }
   }
 
@@ -36,72 +50,106 @@ export class AiLabService {
       textContent = 'Academic content about ' + subject + ' for Class ' + className;
     }
 
-    let generatedData: { mcqs: any[], creatives: any[] } = { mcqs: [], creatives: [] };
-
-    if (!this.genAI) {
+    if (!this.genAI && !process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY) {
       throw new InternalServerErrorException('Service is not configured. Please contact support.');
     }
 
-    const prompt = `
-      Act as an expert ${subject} teacher for Class ${className}. 
-      Based on the provided text content, generate an exam paper in ${language}.
-      The exam name is "${examName}" and the total marks are ${totalMarks}.
-      
-      CRITICAL RULES:
-      1. DO NOT generate placeholder, generic, or dummy content like "Sample Question" or "What is...?".
-      2. Every question must be deeply relevant to the provided content.
-      3. For Multiple Choice Questions (MCQ), provide 4 distinct, plausible options and identify the correct one.
-      4. For Creative (Srijonshil) Questions, create a realistic scenario/stem followed by 4 parts (A, B, C, D) with increasing cognitive depth (Knowledge, Understanding, Application, Higher Order).
-      5. Use professional academic tone in ${language}.
-      6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
-         - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
-         - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
-         - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
-         - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
-      
-      Requirements:
-      ${questionType !== 'CQ' ? `1. Generate ${mcqCount} Multiple Choice Questions (MCQ).` : ''}
-      ${questionType !== 'MCQ' ? `2. Generate ${cqCount} Creative (Srijonshil) Questions.` : ''}
-      3. Difficulty level: ${difficulty}.
-      4. Language: ${language}. If ${language} is Bangla, ensure proper Bangla grammar, numerals and academic terminology.
-      
-      Content for reference:
-      ---
-      ${textContent.substring(0, 8000)} 
-      ---
-      
-      Return the result strictly as a JSON object with this structure:
-      {
-        "mcqs": [
-          { "text": "...", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "answer": "Option 1" }
-        ],
-        "creatives": [
-          { 
-            "scenario": "...", 
-            "parts": { "A": "...", "B": "...", "C": "...", "D": "..." } 
-          }
-        ]
-      }
-    `;
+    const institute = await this.instituteModel.findById(instituteId);
+    const activeProvider = institute?.aiProvider || process.env.ACTIVE_AI_PROVIDER || 'groq';
 
-    try {
-      const parsed = await this.callAiWithFallback(prompt);
-      generatedData = {
-        mcqs: parsed.mcqs || [],
-        creatives: parsed.creatives || []
-      };
-    } catch (err) {
-      console.error('Gemini Fallback Failed:', err);
-      if (err instanceof InternalServerErrorException) {
-        throw err;
+    let allMcqs = [];
+    let allCreatives = [];
+
+    let remainingMcq = questionType !== 'CQ' ? (parseInt(mcqCount) || 0) : 0;
+    let remainingCq = questionType !== 'MCQ' ? (parseInt(cqCount) || 0) : 0;
+
+    const BATCH_MCQ = 20;
+    const BATCH_CQ = 5;
+
+    while (remainingMcq > 0 || remainingCq > 0) {
+      const currentMcq = Math.min(remainingMcq, BATCH_MCQ);
+      const currentCq = Math.min(remainingCq, BATCH_CQ);
+      
+      const prompt = `
+        Act as an expert ${subject} teacher for Class ${className}. 
+        Based on the provided text content, generate an exam paper in ${language}.
+        The exam name is "${examName}".
+        
+        CRITICAL RULES:
+        1. DO NOT generate placeholder, generic, or dummy content like "Sample Question" or "What is...?".
+        2. Every question must be deeply relevant to the provided content.
+        3. For Multiple Choice Questions (MCQ), provide 4 distinct, plausible options and identify the correct one.
+        4. For Creative (Srijonshil) Questions, create a realistic scenario/stem followed by 4 parts (A, B, C, D) with increasing cognitive depth (Knowledge, Understanding, Application, Higher Order).
+        5. Use professional academic tone in ${language}.
+        6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
+           - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
+           - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
+           - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
+           - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
+        
+        Requirements:
+        ${currentMcq > 0 ? `1. Generate ${currentMcq} Multiple Choice Questions (MCQ).` : ''}
+        ${currentCq > 0 ? `2. Generate ${currentCq} Creative (Srijonshil) Questions.` : ''}
+        3. Difficulty level: ${difficulty}.
+        4. Language: ${language}. If ${language} is Bangla, ensure proper Bangla grammar, numerals and academic terminology.
+        
+        Content for reference:
+        ---
+        ${textContent.substring(0, 8000)} 
+        ---
+        
+        Return the result strictly as a JSON object with this structure:
+        {
+          "mcqs": [
+            { "text": "...", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "answer": "Option 1" }
+          ],
+          "creatives": [
+            { 
+              "scenario": "...", 
+              "parts": { "A": "...", "B": "...", "C": "...", "D": "..." } 
+            }
+          ]
+        }
+      `;
+
+      try {
+        let parsed;
+        if (activeProvider === 'openai') {
+          parsed = await this.callOpenAi(prompt);
+        } else if (activeProvider === 'groq') {
+          parsed = await this.callGroqAi(prompt);
+        } else {
+          parsed = await this.callAiWithFallback(prompt);
+        }
+        if (parsed.mcqs) allMcqs.push(...parsed.mcqs);
+        if (parsed.creatives) allCreatives.push(...parsed.creatives);
+      } catch (err) {
+        console.error('AI Generation Batch Failed:', err.message || err);
+        if (allMcqs.length === 0 && allCreatives.length === 0) {
+          if (err instanceof InternalServerErrorException) {
+            throw err;
+          }
+          throw new InternalServerErrorException('Failed to generate questions. Please try again later.');
+        } else {
+          // If we got some questions in previous chunks, just return them instead of failing completely.
+          console.warn('Returning partial data due to batch failure.');
+          break; 
+        }
       }
-      throw new InternalServerErrorException('An unexpected error occurred while generating questions. Please try again later.');
+
+      remainingMcq -= currentMcq;
+      remainingCq -= currentCq;
+      
+      // Delay for API rate limits if there are more chunks
+      if ((remainingMcq > 0 || remainingCq > 0) && activeProvider === 'groq') {
+         await new Promise(res => setTimeout(res, 2500));
+      }
     }
 
     // Combine questions for draft
     const allQuestions = [
-      ...generatedData.mcqs.map(q => ({ content: q, type: 'MCQ' })),
-      ...generatedData.creatives.map(q => ({ content: q, type: 'Creative' }))
+      ...allMcqs.map(q => ({ content: q, type: 'MCQ' })),
+      ...allCreatives.map(q => ({ content: q, type: 'Creative' }))
     ];
 
     // Return as a draft object, NOT saved to DB
@@ -154,7 +202,7 @@ export class AiLabService {
     }).exec();
   }
 
-  async refineQuestionsDraft(draft: any, indicesToReplace: number[]) {
+  async refineQuestionsDraft(draft: any, indicesToReplace: number[], instituteId?: string) {
     const questionsToKeep = draft.questions.filter((_, i) => !indicesToReplace.includes(i));
     const questionsToReplace = draft.questions.filter((_, i) => indicesToReplace.includes(i));
     
@@ -198,7 +246,23 @@ export class AiLabService {
     `;
 
     try {
-      const parsed = await this.callAiWithFallback(prompt);
+      let activeProvider = process.env.ACTIVE_AI_PROVIDER || 'groq';
+      if (instituteId) {
+        const institute = await this.instituteModel.findById(instituteId);
+        if (institute && institute.aiProvider) {
+          activeProvider = institute.aiProvider;
+        }
+      }
+
+      let parsed;
+      if (activeProvider === 'openai') {
+        parsed = await this.callOpenAi(prompt);
+      } else if (activeProvider === 'groq') {
+        parsed = await this.callGroqAi(prompt);
+      } else {
+        parsed = await this.callAiWithFallback(prompt);
+      }
+      
       const newQuestions = [
         ...(parsed.mcqs || []).map(q => ({ content: q, type: 'MCQ' })),
         ...(parsed.creatives || []).map(q => ({ content: q, type: 'Creative' }))
@@ -322,6 +386,72 @@ export class AiLabService {
     }
     
     throw new InternalServerErrorException('We are unable to process your request at this time. Please try again later.');
+  }
+
+  private async callGroqAi(prompt: string) {
+    if (!this.groq) {
+      throw new InternalServerErrorException('Groq is not configured. Please add GROQ_API_KEY in .env.');
+    }
+    try {
+      console.log('Trying Groq model: llama-3.3-70b-versatile...');
+      const completion = await this.groq.chat.completions.create({
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are an expert academic teacher. You must output strictly valid JSON. You MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
+          },
+          { role: 'user', content: prompt }
+        ],
+        model: 'llama-3.3-70b-versatile',
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 8000,
+      });
+      let text = completion.choices[0]?.message?.content || '{}';
+      
+      // Robust JSON parsing: remove potential markdown formatting
+      text = text.replace(/```json\n?|```\n?/g, '').trim();
+      
+      return JSON.parse(text);
+    } catch (err) {
+      console.error('Groq Generation Failed:', err.message || err);
+      if (err.status === 429 || err.message?.includes('429')) {
+        throw new InternalServerErrorException('Groq is currently experiencing high demand. Please try again in a few moments.');
+      }
+      if (err instanceof SyntaxError || err.message?.includes('JSON')) {
+        throw new InternalServerErrorException('Request too large. The AI hit its output limit before finishing (usually happens for large amounts of questions in Bangla). Please reduce mcq/cq counts.');
+      }
+      throw new InternalServerErrorException('Failed to generate with Groq. Please try again later.');
+    }
+  }
+
+  private async callOpenAi(prompt: string) {
+    if (!this.openai) {
+      throw new InternalServerErrorException('OpenAI is not configured. Please add OPENAI_API_KEY in .env.');
+    }
+    try {
+      console.log('Trying OpenAI model: gpt-4o-mini...');
+      const completion = await this.openai.chat.completions.create({
+        messages: [
+          { 
+            role: 'system', 
+            content: 'You are an expert academic teacher. You must output strictly valid JSON. You MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
+          },
+          { role: 'user', content: prompt }
+        ],
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+      });
+      let text = completion.choices[0]?.message?.content || '{}';
+      
+      text = text.replace(/```json\n?|```\n?/g, '').trim();
+      return JSON.parse(text);
+    } catch (err) {
+      console.error('OpenAI Generation Failed:', err.message || err);
+      if (err instanceof SyntaxError || err.message?.includes('JSON')) {
+        throw new InternalServerErrorException('Request too large. The AI hit its output limit before finishing. Please reduce mcq/cq counts.');
+      }
+      throw new InternalServerErrorException('Failed to generate with OpenAI. Please try again later.');
+    }
   }
 
   async saveFinalizedSet(draft: any, userId: string, instituteId: string) {

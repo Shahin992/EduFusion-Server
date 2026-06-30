@@ -91,8 +91,9 @@ export class AiLabController {
   async refine(
     @Body('draft') draft: any,
     @Body('indices') indices: number[],
+    @Request() req,
   ) {
-    const data = await this.aiLabService.refineQuestionsDraft(draft, indices);
+    const data = await this.aiLabService.refineQuestionsDraft(draft, indices, req.user.instituteId);
     return { data, message: 'Questions refined successfully' };
   }
 

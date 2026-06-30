@@ -65,10 +65,25 @@ export class WahaService {
     try {
       // WAHA Core only supports the 'default' session name
       const sessionId = 'default';
+      const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
       
-      // Start session
+      // 1. Recover from FAILED state if necessary
       try {
-        const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+        const checkRes = await axios.get(`${wahaApiUrl}/api/sessions/${sessionId}`, {
+          headers: { 'X-Api-Key': 'edufusion123' }
+        });
+        if (checkRes.data.status === 'FAILED') {
+          await axios.post(`${wahaApiUrl}/api/sessions/${sessionId}/stop`, {}, {
+            headers: { 'X-Api-Key': 'edufusion123' }
+          });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } catch (e) {
+        // Ignore if session not found
+      }
+
+      // 2. Start session
+      try {
         await axios.post(`${wahaApiUrl}/api/sessions/start`, {
           name: sessionId,
           config: {}
@@ -80,11 +95,25 @@ export class WahaService {
         if (startErr.response?.status !== 422) throw startErr;
       }
 
-      // Wait a bit for the engine to initialize the QR code
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 3. Poll until engine is ready for QR code (up to 30 seconds)
+      let status = 'STARTING';
+      let retries = 0;
+      while (status === 'STARTING' && retries < 15) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        try {
+          const sessionRes = await axios.get(`${wahaApiUrl}/api/sessions/${sessionId}`, {
+            headers: { 'X-Api-Key': 'edufusion123' }
+          });
+          status = sessionRes.data.status;
+        } catch (e) {}
+        retries++;
+      }
 
-      // Get QR code
-      const wahaApiUrl = process.env.WAHA_API_URL || 'http://localhost:3000';
+      if (status !== 'SCAN_QR_CODE' && status !== 'WORKING') {
+        throw new Error(`WhatsApp Engine took too long to start (Status: ${status})`);
+      }
+
+      // 4. Get QR code
       const qrRes = await axios.get(`${wahaApiUrl}/api/${sessionId}/auth/qr?format=image`, {
         responseType: 'arraybuffer',
         headers: { 'X-Api-Key': 'edufusion123' }
@@ -104,7 +133,7 @@ export class WahaService {
       };
     } catch (err) {
       console.error('WAHA API Error:', err.message);
-      throw new BadRequestException('WhatsApp Engine is starting up or unavailable. Please try again in 10-20 seconds.');
+      throw new BadRequestException('WhatsApp Engine is starting up or unavailable. Please try again in a few seconds.');
     }
   }
 

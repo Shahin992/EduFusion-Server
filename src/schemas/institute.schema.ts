@@ -68,6 +68,10 @@ export class Institute extends Document {
 
   @Prop()
   wahaNumber: string;
+
+  // AI Configuration
+  @Prop({ default: 'groq' })
+  aiProvider: string;
 }
 
 export const InstituteSchema = SchemaFactory.createForClass(Institute);

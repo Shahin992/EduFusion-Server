@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
+import { InjectModel, InjectConnection } from '@nestjs/mongoose';
+import { Model, Types, Connection, ClientSession } from 'mongoose';
+import * as crypto from 'crypto';
 import { Fee } from '../../schemas/fee.schema';
 import { Student } from '../../schemas/student.schema';
 import { AcademicClass } from '../../schemas/academic-class.schema';
@@ -18,6 +19,7 @@ export class FeesService {
     @InjectModel(Fee.name) private feeModel: Model<Fee>,
     @InjectModel(Student.name) private studentModel: Model<Student>,
     @InjectModel(AcademicClass.name) private academicClassModel: Model<AcademicClass>,
+    @InjectConnection() private readonly connection: Connection,
   ) {}
 
   @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
@@ -39,11 +41,11 @@ export class FeesService {
     }
   }
 
-  async recordPayment(data: any, instituteId: string) {
+  async recordPayment(data: any, instituteId: string, session?: ClientSession) {
     const student = await this.studentModel.findOne({ 
       _id: new Types.ObjectId(data.studentId), 
       instituteId: new Types.ObjectId(instituteId) 
-    });
+    }).session(session);
     if (!student) {
       throw new NotFoundException('Student not found');
     }
@@ -63,14 +65,15 @@ export class FeesService {
     const dueAmount = data.dueAmount !== undefined ? Number(data.dueAmount) : Math.max(0, totalAmount - amount - discountAmount);
     const status = dueAmount <= 0 ? 'Paid' : (amount > 0 ? 'Partial' : 'Pending');
 
-    const receiptNumber = `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const uniqueCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+    const receiptNumber = `EF-${new Date().getFullYear()}-${uniqueCode}`;
     const txId = data.transactionId || receiptNumber;
     const txDate = data.paymentDate || new Date();
 
     // If an existing pending/partial fee for the same month and type exists, we could update it.
     // For now, if we are passing an ID (from edit), update it.
     if (data._id) {
-      const existingFee = await this.feeModel.findById(data._id);
+      const existingFee = await this.feeModel.findById(data._id).session(session);
       if (existingFee) {
         existingFee.amount = (existingFee.amount || 0) + amount;
         existingFee.discountAmount = (existingFee.discountAmount || 0) + discountAmount;
@@ -90,7 +93,7 @@ export class FeesService {
           note: data.note || ''
         });
 
-        return await existingFee.save();
+        return await existingFee.save({ session });
       }
     }
 
@@ -114,7 +117,7 @@ export class FeesService {
       }]
     });
 
-    return await newFee.save();
+    return await newFee.save({ session });
   }
 
   async findStudentPayments(studentId: string, instituteId: string) {
@@ -368,27 +371,39 @@ export class FeesService {
   }
 
   async recordBulkPayments(data: { classId: string, feeType?: string, month?: string, feeName?: string, payments: any[] }, instituteId: string) {
-    const { feeType = 'Monthly', month, feeName, payments } = data;
-    const results = [];
-    
-    for (const p of payments) {
-      const paymentData = {
-        _id: p.feeId,
-        studentId: p.studentId,
-        feeType,
-        month: feeType === 'Monthly' ? month : undefined,
-        amount: p.amountPaid,
-        totalAmount: p.totalAmount,
-        dueAmount: p.dueAmount,
-        paymentDate: new Date(),
-        note: feeType === 'Other' ? (feeName || 'Bulk Collection') : 'Bulk Collection'
-      };
+    const session = await this.connection.startSession();
+    session.startTransaction();
+
+    try {
+      const { feeType = 'Monthly', month, feeName, payments } = data;
+      const results = [];
       
-      const result = await this.recordPayment(paymentData, instituteId);
-      results.push(result);
+      for (const p of payments) {
+        const paymentData = {
+          _id: p.feeId,
+          studentId: p.studentId,
+          feeType,
+          month: feeType === 'Monthly' ? month : undefined,
+          amount: p.amountPaid,
+          totalAmount: p.totalAmount,
+          dueAmount: p.dueAmount,
+          paymentDate: new Date(),
+          note: feeType === 'Other' ? (feeName || 'Bulk Collection') : 'Bulk Collection'
+        };
+        
+        const result = await this.recordPayment(paymentData, instituteId, session);
+        results.push(result);
+      }
+      
+      await session.commitTransaction();
+      return results;
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error('Bulk payments transaction aborted due to error', error);
+      throw new BadRequestException('Failed to process bulk payments. No changes were made.');
+    } finally {
+      session.endSession();
     }
-    
-    return results;
   }
 
   async getDues(classId: string, instituteId: string) {
@@ -469,44 +484,57 @@ export class FeesService {
   }
 
   async payStudentDues(data: { payments: { feeId: string, amountPaid: number, discountAmount?: number }[], advanceMonths?: { month: string, totalAmount: number, amountPaid: number, discountAmount: number, studentId: string }[] }, instituteId: string) {
-    const results = [];
-    const transactionId = `EF-${new Date().getFullYear()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+    const session = await this.connection.startSession();
+    session.startTransaction();
 
-    for (const p of data.payments) {
-      const existingFee = await this.feeModel.findOne({ _id: new Types.ObjectId(p.feeId), instituteId: new Types.ObjectId(instituteId) });
-      if (existingFee) {
-        const updateData = {
-          _id: existingFee._id,
-          studentId: existingFee.studentId,
-          amount: p.amountPaid,
-          discountAmount: p.discountAmount || 0,
-          paymentDate: new Date(),
-          transactionId
-        };
-        const res = await this.recordPayment(updateData, instituteId);
-        results.push(res);
+    try {
+      const results = [];
+      const uniqueCode = crypto.randomBytes(3).toString('hex').toUpperCase();
+      const transactionId = `EF-${new Date().getFullYear()}-${uniqueCode}`;
+
+      for (const p of data.payments) {
+        const existingFee = await this.feeModel.findOne({ _id: new Types.ObjectId(p.feeId), instituteId: new Types.ObjectId(instituteId) }).session(session);
+        if (existingFee) {
+          const updateData = {
+            _id: existingFee._id,
+            studentId: existingFee.studentId,
+            amount: p.amountPaid,
+            discountAmount: p.discountAmount || 0,
+            paymentDate: new Date(),
+            transactionId
+          };
+          const res = await this.recordPayment(updateData, instituteId, session);
+          results.push(res);
+        }
       }
-    }
-    
-    if (data.advanceMonths && data.advanceMonths.length > 0) {
-      for (const adv of data.advanceMonths) {
-        const newFeeData = {
-          studentId: adv.studentId,
-          feeType: 'Monthly',
-          month: adv.month,
-          totalAmount: adv.totalAmount,
-          amount: adv.amountPaid,
-          discountAmount: adv.discountAmount || 0,
-          paymentDate: new Date(),
-          note: 'Advance Payment',
-          transactionId
-        };
-        const res = await this.recordPayment(newFeeData, instituteId);
-        results.push(res);
+      
+      if (data.advanceMonths && data.advanceMonths.length > 0) {
+        for (const adv of data.advanceMonths) {
+          const newFeeData = {
+            studentId: adv.studentId,
+            feeType: 'Monthly',
+            month: adv.month,
+            totalAmount: adv.totalAmount,
+            amount: adv.amountPaid,
+            discountAmount: adv.discountAmount || 0,
+            paymentDate: new Date(),
+            note: 'Advance Payment',
+            transactionId
+          };
+          const res = await this.recordPayment(newFeeData, instituteId, session);
+          results.push(res);
+        }
       }
+      
+      await session.commitTransaction();
+      return results;
+    } catch (error) {
+      await session.abortTransaction();
+      this.logger.error('Pay student dues transaction aborted due to error', error);
+      throw new BadRequestException('Failed to process student dues. Transaction rolled back.');
+    } finally {
+      session.endSession();
     }
-    
-    return results;
   }
 
   async scheduleBulkFeeGeneration(data: GenerateBulkFeesDto, instituteId: string) {

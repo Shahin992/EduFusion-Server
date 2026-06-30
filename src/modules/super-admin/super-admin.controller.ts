@@ -24,7 +24,7 @@ export class SuperAdminController {
   @Patch('institutes/:id/subscription')
   updateSubscription(
     @Param('id') id: string,
-    @Body() data: { tier?: string; trialExpiresAt?: Date; isActive?: boolean }
+    @Body() data: { tier?: string; trialExpiresAt?: Date; isActive?: boolean; aiProvider?: string }
   ) {
     return this.superAdminService.updateSubscription(id, data);
   }
