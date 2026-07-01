@@ -45,6 +45,7 @@ services:
     environment:
       - WAHA_ZIPKIN_URL=
       - WAHA_PRINT_QR=False
+      - WAHA_API_KEY=edufusion123
     networks:
       - edufusion-network
 networks:
