@@ -83,9 +83,11 @@ export class AiLabService {
         5. Use professional academic tone in ${language}.
         6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
            - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
-           - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
-           - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
-           - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
+           - EXTREMELY IMPORTANT: Because you are generating JSON, you MUST double-escape ALL backslashes in LaTeX so they survive JSON parsing.
+           - CORRECT: \\\\( x^2 + y^2 = 25 \\\\)  |  INCORRECT: \\( x^2 + y^2 = 25 \\)
+           - CORRECT: \\\\( \\\\frac{1}{2}mv^2 \\\\)  |  INCORRECT: \\( \\frac{1}{2}mv^2 \\)
+           - CORRECT: \\\\( \\\\sec^2 \\\\theta - \\\\tan^2 \\\\theta = 1 \\\\)  |  INCORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)
+           - CORRECT: \\\\( a^0 \\\\)  |  INCORRECT: a^0
         
         Requirements:
         ${currentMcq > 0 ? `1. Generate ${currentMcq} Multiple Choice Questions (MCQ).` : ''}
@@ -100,6 +102,7 @@ export class AiLabService {
         
         Return the result strictly as a JSON object with this structure:
         {
+          "analysis": "A brief analysis of the core concepts in the provided text...",
           "mcqs": [
             { "text": "...", "options": ["Option 1", "Option 2", "Option 3", "Option 4"], "answer": "Option 1" }
           ],
@@ -225,9 +228,11 @@ export class AiLabService {
       5. Use professional academic tone in ${draft.language}.
       6. IMPORTANT FOR MATH/SCIENCE: All mathematical expressions, fractions, formulas, and symbols MUST be wrapped in LaTeX delimiters. DO NOT use plain text or unicode for math (like x^2 or a²).
          - EXTREMELY IMPORTANT: DO NOT EVER generate HTML tags, XML, or KaTeX spans (e.g., <span class="katex">). ONLY output pure, raw source LaTeX math.
-         - CORRECT: \\( x^2 + y^2 = 25 \\)  |  INCORRECT: x^2 + y^2 = 25
-         - CORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)  |  INCORRECT: sec²θ - tan²θ = 1
-         - CORRECT: \\( a^0 \\)  |  INCORRECT: a^0
+         - EXTREMELY IMPORTANT: Because you are generating JSON, you MUST double-escape ALL backslashes in LaTeX so they survive JSON parsing.
+         - CORRECT: \\\\( x^2 + y^2 = 25 \\\\)  |  INCORRECT: \\( x^2 + y^2 = 25 \\)
+         - CORRECT: \\\\( \\\\frac{1}{2}mv^2 \\\\)  |  INCORRECT: \\( \\frac{1}{2}mv^2 \\)
+         - CORRECT: \\\\( \\\\sec^2 \\\\theta - \\\\tan^2 \\\\theta = 1 \\\\)  |  INCORRECT: \\( \\sec^2 \\theta - \\tan^2 \\theta = 1 \\)
+         - CORRECT: \\\\( a^0 \\\\)  |  INCORRECT: a^0
 
       KEEP these questions (DO NOT REPEAT THEM):
       ${JSON.stringify(questionsToKeep.map(q => q.content.text || q.content.scenario))}
@@ -306,6 +311,7 @@ export class AiLabService {
     const schema = {
       type: SchemaType.OBJECT,
       properties: {
+        analysis: { type: SchemaType.STRING },
         mcqs: {
           type: SchemaType.ARRAY,
           items: {
@@ -339,7 +345,7 @@ export class AiLabService {
           }
         }
       },
-      required: ["mcqs", "creatives"]
+      required: ["analysis", "mcqs", "creatives"]
     };
 
     for (const modelName of models) {
@@ -398,7 +404,7 @@ export class AiLabService {
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert academic teacher. You must output strictly valid JSON. You MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
+            content: 'You are an expert academic teacher. You must output strictly valid JSON. First, analyze the core concepts and include an "analysis" string in your JSON. Then, you MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
           },
           { role: 'user', content: prompt }
         ],
@@ -434,7 +440,7 @@ export class AiLabService {
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert academic teacher. You must output strictly valid JSON. You MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
+            content: 'You are an expert academic teacher. You must output strictly valid JSON. First, analyze the core concepts and include an "analysis" string in your JSON. Then, you MUST generate BOTH "mcqs" (Multiple Choice Questions) and "creatives" (Creative/Srijonshil Questions) if requested. Never return an empty array for creatives if the prompt asks for them. Always strictly follow the JSON schema provided in the prompt.' 
           },
           { role: 'user', content: prompt }
         ],
