@@ -22,7 +22,7 @@ export class FeesService {
     @InjectConnection() private readonly connection: Connection,
   ) {}
 
-  @Cron(CronExpression.EVERY_1ST_DAY_OF_MONTH_AT_MIDNIGHT)
+  @Cron('0 0 2 * *', { timeZone: 'Asia/Dhaka' })
   async generateMonthlyFeesJob() {
     this.logger.log('Cron Job Triggered: Scheduling generate-monthly-fees via BullMQ...');
     const currentMonth = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });

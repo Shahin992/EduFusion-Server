@@ -76,7 +76,7 @@ export class FeesProcessor extends WorkerHost {
             status: 'Pending',
             paymentDate: new Date(),
             receiptNumber,
-            note: 'Auto-generated Monthly Fee'
+            note: 'Auto-generated Monthly Fee -auto generated 2nd of the month'
           });
         }
       }
