@@ -11,7 +11,7 @@ services:
       redis:
         condition: service_healthy
     command: >
-      sh -c "node dist/scripts/run-migrations.js && node dist/main"
+      sh -c "node dist/scripts/run-migrations.js && sleep 5 && node dist/main"
     environment:
       - NODE_ENV=production
       - REDIS_HOST=redis
